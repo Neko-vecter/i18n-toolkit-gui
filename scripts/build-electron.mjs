@@ -25,8 +25,10 @@ const api = {
   getLastProjectPath: () => ipcRenderer.invoke("project:getLastPath"),
   chooseProject: () => ipcRenderer.invoke("project:choose"),
   openProject: (rootPath) => ipcRenderer.invoke("project:open", rootPath),
-  loadDocument: (projectRoot, language, relativePath) =>
-    ipcRenderer.invoke("document:load", { projectRoot, language, relativePath }),
+  scanFiles: (projectRoot, mode, language) =>
+    ipcRenderer.invoke("project:scanFiles", { projectRoot, mode, language }),
+  loadDocument: (projectRoot, mode, language, relativePath) =>
+    ipcRenderer.invoke("document:load", { projectRoot, mode, language, relativePath }),
   saveTranslations: (payload) => ipcRenderer.invoke("document:saveTranslations", payload),
   rebuildDocument: (payload) => ipcRenderer.invoke("document:rebuild", payload),
   onOpenProjectRequest: (callback) => {

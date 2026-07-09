@@ -1,11 +1,15 @@
+export type ProjectMode = "docusaurus" | "separated-toml";
+
 export interface ProjectState {
   rootPath: string;
+  mode: ProjectMode;
   docs: DocFile[];
   languages: string[];
   validation: ProjectValidation;
 }
 
 export interface ProjectValidation {
+  hasProjectToml: boolean;
   hasDocs: boolean;
   hasDocusaurusConfig: boolean;
   hasPackageJson: boolean;
@@ -17,7 +21,7 @@ export interface DocFile {
   name: string;
   relativePath: string;
   absolutePath: string;
-  extension: ".md" | ".mdx";
+  extension: ".md" | ".mdx" | ".toml";
 }
 
 export interface TranslationBlock {
@@ -43,6 +47,7 @@ export interface RebuildResult {
 
 export interface SaveTranslationsPayload {
   projectRoot: string;
+  mode: ProjectMode;
   language: string;
   relativePath: string;
   blocks: TranslationBlock[];
@@ -50,6 +55,7 @@ export interface SaveTranslationsPayload {
 
 export interface RebuildPayload {
   projectRoot: string;
+  mode?: ProjectMode;
   language: string;
   relativePath: string;
 }

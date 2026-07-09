@@ -698,7 +698,7 @@ function ProjectPicker({
         <h1>i18n Toolkit</h1>
         <button className="primary-button" onClick={onChoose}>
           <Upload size={18} />
-          Choose Docusaurus project
+          Choose project
         </button>
         {lastProjectPath ? (
           <button className="secondary-button" onClick={onOpenLast} title={lastProjectPath}>
@@ -706,7 +706,8 @@ function ProjectPicker({
           </button>
         ) : null}
         <div className="picker-hint">
-          Select the Docusaurus root folder that contains <code>docs/</code>.
+          Select a Docusaurus project with <code>docs/</code> or a separated TOML project with{" "}
+          <code>i18n-project.toml</code>.
         </div>
         {status.kind === "error" ? <p className="error-text">{status.message}</p> : null}
       </section>
@@ -811,6 +812,7 @@ function App() {
   const canGoPrevious = currentBlockIndex > 0;
   const canGoNext = currentBlockIndex < blocks.length - 1;
   const colorTheme = settings.themeMode === "system" ? systemTheme : settings.themeMode;
+  const isSeparatedToml = project?.mode === "separated-toml";
 
   function jumpToBlock(value: string) {
     const nextIndex = Number.parseInt(value, 10) - 1;
@@ -831,6 +833,23 @@ function App() {
     localStorage.setItem("i18n-toolkit-settings", JSON.stringify(nextSettings));
   }
 
+  function clearDocumentState() {
+    setSelectedFile(null);
+    setDocument(null);
+    setBlocks([]);
+    setCurrentBlockIndex(0);
+    setDocumentView("list");
+    setDirty(false);
+  }
+
+  function applyProject(next: ProjectState) {
+    setProject(next);
+    setLanguage(next.languages[0] ?? "en");
+    clearDocumentState();
+    setLastLog("");
+    setShowLog(false);
+  }
+
   async function chooseProject() {
     setStatus({ kind: "loading", message: "Opening project" });
     try {
@@ -839,14 +858,7 @@ function App() {
         setStatus(emptyStatus);
         return;
       }
-      setProject(next);
-      setLanguage(next.languages[0] ?? "en");
-      setSelectedFile(null);
-      setDocument(null);
-      setBlocks([]);
-      setCurrentBlockIndex(0);
-      setDocumentView("list");
-      setDirty(false);
+      applyProject(next);
       setStatus({ kind: "success", message: "Project loaded" });
     } catch (error) {
       setStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
@@ -860,14 +872,7 @@ function App() {
     setStatus({ kind: "loading", message: "Opening recent project" });
     try {
       const next = (await window.i18nToolkit.openProject(lastProjectPath)) as ProjectState;
-      setProject(next);
-      setLanguage(next.languages[0] ?? "en");
-      setSelectedFile(null);
-      setDocument(null);
-      setBlocks([]);
-      setCurrentBlockIndex(0);
-      setDocumentView("list");
-      setDirty(false);
+      applyProject(next);
       setStatus({ kind: "success", message: "Project loaded" });
     } catch (error) {
       setStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
@@ -881,7 +886,12 @@ function App() {
     setSelectedFile(file);
     setStatus({ kind: "loading", message: "Loading document" });
     try {
-      const loaded = (await window.i18nToolkit.loadDocument(project.rootPath, lang, file.relativePath)) as LoadedDocument;
+      const loaded = (await window.i18nToolkit.loadDocument(
+        project.rootPath,
+        project.mode,
+        lang,
+        file.relativePath
+      )) as LoadedDocument;
       setDocument(loaded);
       setBlocks(loaded.blocks);
       setCurrentBlockIndex(0);
@@ -889,7 +899,11 @@ function App() {
       setDirty(false);
       setStatus({
         kind: loaded.tomlExists ? "success" : "error",
-        message: loaded.tomlExists ? "Document loaded" : "TOML missing. Run rebuild."
+        message: loaded.tomlExists
+          ? "Document loaded"
+          : project.mode === "separated-toml"
+            ? "TOML missing."
+            : "TOML missing. Run rebuild."
       });
     } catch (error) {
       setStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
@@ -904,6 +918,7 @@ function App() {
     try {
       const saved = (await window.i18nToolkit.saveTranslations({
         projectRoot: project.rootPath,
+        mode: project.mode,
         language,
         relativePath: selectedFile.relativePath,
         blocks
@@ -921,7 +936,7 @@ function App() {
   }
 
   async function rebuild() {
-    if (!project || !selectedFile) {
+    if (!project || !selectedFile || project.mode === "separated-toml") {
       return;
     }
     setStatus({ kind: "rebuilding", message: "Rebuilding current file" });
@@ -930,6 +945,7 @@ function App() {
     try {
       const result = (await window.i18nToolkit.rebuildDocument({
         projectRoot: project.rootPath,
+        mode: project.mode,
         language,
         relativePath: selectedFile.relativePath
       })) as RebuildResult;
@@ -961,8 +977,7 @@ function App() {
         if (!initial) {
           return;
         }
-        setProject(initial);
-        setLanguage(initial.languages[0] ?? "en");
+        applyProject(initial);
       })
       .catch((error: unknown) => {
         setStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
@@ -1006,7 +1021,32 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (selectedFile && language) {
+    if (!project || !language) {
+      return;
+    }
+
+    if (project.mode === "separated-toml") {
+      const previousPath = selectedFile?.relativePath;
+      window.i18nToolkit
+        .scanFiles(project.rootPath, project.mode, language)
+        .then((files: DocFile[]) => {
+          setProject((current) => (current ? { ...current, docs: files } : current));
+          const nextSelected = previousPath ? files.find((file) => file.relativePath === previousPath) : null;
+          if (nextSelected) {
+            void loadSelected(nextSelected, language);
+          } else {
+            clearDocumentState();
+            setStatus({ kind: "success", message: "Language loaded" });
+          }
+        })
+        .catch((error: unknown) => {
+          clearDocumentState();
+          setStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
+        });
+      return;
+    }
+
+    if (selectedFile) {
       void loadSelected(selectedFile, language);
     }
   }, [language]);
@@ -1049,7 +1089,11 @@ function App() {
         </div>
         <label className="search-box">
           <Search size={15} />
-          <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter docs" />
+          <input
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            placeholder={isSeparatedToml ? "Filter TOML" : "Filter docs"}
+          />
         </label>
         <FileTree files={filteredDocs} selected={selectedFile?.relativePath} onSelect={(file) => void loadSelected(file)} />
       </aside>
@@ -1134,14 +1178,16 @@ function App() {
                 </button>
               </>
             ) : null}
-            <button
-              className="toolbar-button"
-              onClick={rebuild}
-              disabled={!selectedFile || status.kind === "rebuilding"}
-            >
-              {status.kind === "rebuilding" ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
-              Rebuild
-            </button>
+            {!isSeparatedToml ? (
+              <button
+                className="toolbar-button"
+                onClick={rebuild}
+                disabled={!selectedFile || status.kind === "rebuilding"}
+              >
+                {status.kind === "rebuilding" ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+                Rebuild
+              </button>
+            ) : null}
           </div>
         </header>
 
@@ -1168,12 +1214,14 @@ function App() {
         ) : null}
 
         {!selectedFile ? (
-          <div className="empty-state">Select a document</div>
+          <div className="empty-state">{isSeparatedToml ? "Select a TOML file" : "Select a document"}</div>
         ) : documentView === "list" ? (
           document?.tomlExists ? (
             <BlockTable blocks={blocks} onOpenBlock={openBlock} />
           ) : (
-            <div className="empty-state">No TOML file for this document. Run rebuild.</div>
+            <div className="empty-state">
+              {isSeparatedToml ? "No TOML file for this entry." : "No TOML file for this document. Run rebuild."}
+            </div>
           )
         ) : (
           <main className="translation-structure">
@@ -1211,7 +1259,11 @@ function App() {
                 </article>
               ) : (
                 <div className="empty-state">
-                  {document?.tomlExists ? "No TOML blocks" : "No TOML file for this document. Run rebuild."}
+                  {document?.tomlExists
+                    ? "No TOML blocks"
+                    : isSeparatedToml
+                      ? "No TOML file for this entry."
+                      : "No TOML file for this document. Run rebuild."}
                 </div>
               )}
             </div>

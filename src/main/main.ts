@@ -8,6 +8,7 @@ import * as TOML from "@iarna/toml";
 import type {
   DocFile,
   LoadedDocument,
+  ProjectMode,
   ProjectState,
   ProjectValidation,
   RebuildPayload,
@@ -63,7 +64,11 @@ function normalizeRelative(filePath: string) {
   return filePath.split(path.sep).join("/");
 }
 
-function tomlPathFor(projectRoot: string, language: string, relativePath: string) {
+function tomlPathFor(projectRoot: string, language: string, relativePath: string, mode: ProjectMode) {
+  if (mode === "separated-toml") {
+    return path.join(projectRoot, language, relativePath);
+  }
+
   const parsed = path.parse(relativePath);
   const tomlRelative = path.join(parsed.dir, `${parsed.name}.toml`);
   return path.join(projectRoot, "i18n", language, docsPluginPath, tomlRelative);
@@ -109,7 +114,42 @@ async function scanDocs(projectRoot: string): Promise<DocFile[]> {
   return files;
 }
 
-async function scanLanguages(projectRoot: string): Promise<string[]> {
+async function scanSeparatedTomlFiles(projectRoot: string, language: string): Promise<DocFile[]> {
+  const languageRoot = path.join(projectRoot, language);
+  const files: DocFile[] = [];
+
+  async function walk(dir: string) {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const entry of entries) {
+      const absolutePath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(absolutePath);
+        continue;
+      }
+
+      if (path.extname(entry.name) !== ".toml") {
+        continue;
+      }
+
+      files.push({
+        name: entry.name,
+        relativePath: normalizeRelative(path.relative(languageRoot, absolutePath)),
+        absolutePath,
+        extension: ".toml"
+      });
+    }
+  }
+
+  if (await exists(languageRoot)) {
+    await walk(languageRoot);
+  }
+
+  return files;
+}
+
+async function scanDocusaurusLanguages(projectRoot: string): Promise<string[]> {
   const i18nRoot = path.join(projectRoot, "i18n");
   if (!(await exists(i18nRoot))) {
     return [];
@@ -132,7 +172,37 @@ async function scanLanguages(projectRoot: string): Promise<string[]> {
   return languages.sort((a, b) => a.localeCompare(b));
 }
 
-async function validateProject(projectRoot: string): Promise<ProjectValidation> {
+async function scanSeparatedLanguages(projectRoot: string): Promise<string[]> {
+  const entries = await fs.readdir(projectRoot, { withFileTypes: true });
+  const languages: string[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    if ((await scanSeparatedTomlFiles(projectRoot, entry.name)).length) {
+      languages.push(entry.name);
+    }
+  }
+
+  return languages.sort((a, b) => a.localeCompare(b));
+}
+
+async function detectProjectMode(projectRoot: string): Promise<ProjectMode | null> {
+  if (await exists(path.join(projectRoot, "i18n-project.toml"))) {
+    return "separated-toml";
+  }
+
+  if (await exists(path.join(projectRoot, "docs"))) {
+    return "docusaurus";
+  }
+
+  return null;
+}
+
+async function validateProject(projectRoot: string, mode: ProjectMode | null): Promise<ProjectValidation> {
+  const hasProjectToml = await exists(path.join(projectRoot, "i18n-project.toml"));
   const hasDocs = await exists(path.join(projectRoot, "docs"));
   const hasPackageJson = await exists(path.join(projectRoot, "package.json"));
   const hasI18n = await exists(path.join(projectRoot, "i18n"));
@@ -148,17 +218,21 @@ async function validateProject(projectRoot: string): Promise<ProjectValidation> 
   const hasDocusaurusConfig = configChecks.some(Boolean);
   const warnings: string[] = [];
 
-  if (!hasDocusaurusConfig) {
+  if (mode === "docusaurus" && !hasDocusaurusConfig) {
     warnings.push("No docusaurus.config.* file found.");
   }
-  if (!hasPackageJson) {
+  if (mode === "docusaurus" && !hasPackageJson) {
     warnings.push("No package.json found.");
   }
-  if (!hasI18n) {
+  if (mode === "docusaurus" && !hasI18n) {
     warnings.push("No i18n/ folder found yet. Languages will default to en.");
+  }
+  if (mode === "separated-toml" && !hasProjectToml) {
+    warnings.push("No i18n-project.toml marker found.");
   }
 
   return {
+    hasProjectToml,
     hasDocs,
     hasDocusaurusConfig,
     hasPackageJson,
@@ -168,15 +242,25 @@ async function validateProject(projectRoot: string): Promise<ProjectValidation> 
 }
 
 async function openProject(projectRoot: string): Promise<ProjectState> {
-  const validation = await validateProject(projectRoot);
-  if (!validation.hasDocs) {
-    throw new Error(`Invalid project folder: ${projectRoot} does not contain docs/.`);
+  const mode = await detectProjectMode(projectRoot);
+  const validation = await validateProject(projectRoot, mode);
+  if (!mode) {
+    throw new Error(`Invalid project folder: ${projectRoot} must contain docs/ or i18n-project.toml.`);
   }
+
+  const languages = mode === "separated-toml" ? await scanSeparatedLanguages(projectRoot) : await scanDocusaurusLanguages(projectRoot);
+  const files =
+    mode === "separated-toml"
+      ? languages[0]
+        ? await scanSeparatedTomlFiles(projectRoot, languages[0])
+        : []
+      : await scanDocs(projectRoot);
 
   const state: ProjectState = {
     rootPath: projectRoot,
-    docs: await scanDocs(projectRoot),
-    languages: await scanLanguages(projectRoot),
+    mode,
+    docs: files,
+    languages,
     validation
   };
 
@@ -218,12 +302,26 @@ function serializeTranslationToml(blocks: TranslationBlock[]) {
 async function loadDocument(
   projectRoot: string,
   language: string,
-  relativePath: string
+  relativePath: string,
+  mode: ProjectMode = "docusaurus"
 ): Promise<LoadedDocument> {
-  const originalPath = docPathFor(projectRoot, relativePath);
-  const tomlPath = tomlPathFor(projectRoot, language, relativePath);
+  let resolvedMode = mode;
+  let resolvedLanguage = language;
+  let resolvedRelativePath = relativePath;
+
+  if ((language === "docusaurus" || language === "separated-toml") && relativePath) {
+    resolvedMode = language;
+    resolvedLanguage = relativePath;
+    resolvedRelativePath = "";
+  }
+
+  if (!resolvedRelativePath) {
+    throw new Error("Cannot load document without a file path.");
+  }
+
+  const tomlPath = tomlPathFor(projectRoot, resolvedLanguage, resolvedRelativePath, resolvedMode);
   const [original, tomlExists] = await Promise.all([
-    fs.readFile(originalPath, "utf8"),
+    resolvedMode === "docusaurus" ? fs.readFile(docPathFor(projectRoot, resolvedRelativePath), "utf8") : Promise.resolve(""),
     exists(tomlPath)
   ]);
 
@@ -231,8 +329,8 @@ async function loadDocument(
 
   return {
     projectRoot,
-    language,
-    relativePath,
+    language: resolvedLanguage,
+    relativePath: resolvedRelativePath,
     original,
     tomlPath,
     tomlExists,
@@ -241,7 +339,8 @@ async function loadDocument(
 }
 
 async function saveTranslations(payload: SaveTranslationsPayload): Promise<LoadedDocument> {
-  const tomlPath = tomlPathFor(payload.projectRoot, payload.language, payload.relativePath);
+  const mode = payload.mode ?? "docusaurus";
+  const tomlPath = tomlPathFor(payload.projectRoot, payload.language, payload.relativePath, mode);
   if (!(await exists(tomlPath))) {
     throw new Error(`Cannot save translations because TOML does not exist: ${tomlPath}`);
   }
@@ -260,7 +359,7 @@ async function saveTranslations(payload: SaveTranslationsPayload): Promise<Loade
   });
 
   await fs.writeFile(tomlPath, serializeTranslationToml(nextBlocks), "utf8");
-  return loadDocument(payload.projectRoot, payload.language, payload.relativePath);
+  return loadDocument(payload.projectRoot, payload.language, payload.relativePath, mode);
 }
 
 function toolkitPath() {
@@ -345,6 +444,10 @@ async function runPythonScript(
 }
 
 async function rebuildDocument(payload: RebuildPayload): Promise<RebuildResult> {
+  if (payload.mode === "separated-toml") {
+    return { ok: false, output: "Rebuild is unavailable in separated TOML mode." };
+  }
+
   const middleware = await runPythonScript(
     "build_file_middleware.py",
     payload.projectRoot,
@@ -399,7 +502,7 @@ async function createWindow() {
 app.whenReady().then(async () => {
   ipcMain.handle("project:getInitial", async () => {
     const config = await readConfig();
-    if (!config.lastProjectRoot || !(await exists(path.join(config.lastProjectRoot, "docs")))) {
+    if (!config.lastProjectRoot || !(await detectProjectMode(config.lastProjectRoot))) {
       return null;
     }
     return openProject(config.lastProjectRoot);
@@ -417,7 +520,7 @@ app.whenReady().then(async () => {
     const config = await readConfig();
     const parent = BrowserWindow.fromWebContents(event.sender);
     const options: OpenDialogOptions = {
-      title: "Choose Docusaurus project folder",
+      title: "Choose i18n project folder",
       defaultPath: config.lastProjectRoot,
       properties: ["openDirectory"]
     };
@@ -429,8 +532,13 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle("project:open", (_event, rootPath: string) => openProject(rootPath));
+  ipcMain.handle("project:scanFiles", (_event, payload) =>
+    payload.mode === "separated-toml"
+      ? scanSeparatedTomlFiles(payload.projectRoot, payload.language)
+      : scanDocs(payload.projectRoot)
+  );
   ipcMain.handle("document:load", (_event, payload) =>
-    loadDocument(payload.projectRoot, payload.language, payload.relativePath)
+    loadDocument(payload.projectRoot, payload.language, payload.relativePath, payload.mode)
   );
   ipcMain.handle("document:saveTranslations", (_event, payload: SaveTranslationsPayload) =>
     saveTranslations(payload)
@@ -444,7 +552,7 @@ app.whenReady().then(async () => {
         label: "File",
         submenu: [
           {
-            label: "Open Docusaurus Project...",
+            label: "Open Project...",
             accelerator: "CmdOrCtrl+O",
             click: () => {
               BrowserWindow.getFocusedWindow()?.webContents.send("project:openRequest");
