@@ -89,6 +89,11 @@ function filenameFromPath(value?: string) {
   return value.split(/[\\/]/).pop() || value;
 }
 
+function folderNameFromPath(value: string) {
+  const normalized = value.replace(/[\\/]+$/, "");
+  return normalized.split(/[\\/]/).pop() || normalized;
+}
+
 function buildTree(files: DocFile[]) {
   const root: TreeNode = { name: "docs", path: "", children: new Map() };
   for (const file of files) {
@@ -1067,7 +1072,7 @@ function App() {
       <aside className="sidebar">
         <div className="sidebar-top">
           <div>
-            <div className="project-label">Project</div>
+            <div className="project-label">{folderNameFromPath(project.rootPath)}</div>
             <div className="project-path" title={project.rootPath}>
               {project.rootPath}
             </div>
