@@ -25,6 +25,7 @@ import type { DocFile, LoadedDocument, ProjectState, RebuildResult, TranslationB
 import "./styles.css";
 
 type StatusKind = "idle" | "loading" | "saving" | "rebuilding" | "error" | "success";
+type DocumentView = "list" | "detail";
 
 interface StatusState {
   kind: StatusKind;
@@ -74,6 +75,18 @@ function normalizeTomlText(value: string) {
 
 function toTomlText(value: string, original: string) {
   return original.startsWith("\n") ? `\n${value}` : value;
+}
+
+function previewText(value: string) {
+  const normalized = normalizeTomlText(value).replace(/\s+/g, " ").trim();
+  return normalized || "Empty";
+}
+
+function filenameFromPath(value?: string) {
+  if (!value) {
+    return "No document selected";
+  }
+  return value.split(/[\\/]/).pop() || value;
 }
 
 function buildTree(files: DocFile[]) {
@@ -702,6 +715,47 @@ function ProjectPicker({
   );
 }
 
+function BlockTable({
+  blocks,
+  onOpenBlock
+}: {
+  blocks: TranslationBlock[];
+  onOpenBlock: (index: number) => void;
+}) {
+  if (!blocks.length) {
+    return (
+      <main className="block-list">
+        <div className="empty-state">No TOML blocks</div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="block-list">
+      <div className="block-table" role="table" aria-label="Translation blocks">
+        <div className="block-table-row block-table-head" role="row">
+          <div role="columnheader">key</div>
+          <div role="columnheader">origin</div>
+          <div role="columnheader">translate</div>
+        </div>
+        {blocks.map((block, index) => (
+          <div className="block-table-row" role="row" key={block.key || index}>
+            <button type="button" className="key-cell" onClick={() => onOpenBlock(index)} title={block.key}>
+              {block.key}
+            </button>
+            <button type="button" onClick={() => onOpenBlock(index)} title={normalizeTomlText(block.origin)}>
+              {previewText(block.origin)}
+            </button>
+            <button type="button" onClick={() => onOpenBlock(index)} title={normalizeTomlText(block.translate)}>
+              {previewText(block.translate)}
+            </button>
+          </div>
+        ))}
+      </div>
+    </main>
+  );
+}
+
 function App() {
   if (!window.i18nToolkit) {
     return (
@@ -725,6 +779,7 @@ function App() {
   const [document, setDocument] = useState<LoadedDocument | null>(null);
   const [blocks, setBlocks] = useState<TranslationBlock[]>([]);
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
+  const [documentView, setDocumentView] = useState<DocumentView>("list");
   const [dirty, setDirty] = useState(false);
   const [filter, setFilter] = useState("");
   const [lastProjectPath, setLastProjectPath] = useState<string | null>(null);
@@ -764,6 +819,12 @@ function App() {
       return;
     }
     setCurrentBlockIndex(Math.min(blocks.length - 1, Math.max(0, nextIndex)));
+    setDocumentView("detail");
+  }
+
+  function openBlock(index: number) {
+    setCurrentBlockIndex(Math.min(blocks.length - 1, Math.max(0, index)));
+    setDocumentView("detail");
   }
 
   function updateSettings(nextSettings: AppSettings) {
@@ -785,6 +846,7 @@ function App() {
       setDocument(null);
       setBlocks([]);
       setCurrentBlockIndex(0);
+      setDocumentView("list");
       setDirty(false);
       setStatus({ kind: "success", message: "Project loaded" });
     } catch (error) {
@@ -805,6 +867,7 @@ function App() {
       setDocument(null);
       setBlocks([]);
       setCurrentBlockIndex(0);
+      setDocumentView("list");
       setDirty(false);
       setStatus({ kind: "success", message: "Project loaded" });
     } catch (error) {
@@ -823,6 +886,7 @@ function App() {
       setDocument(loaded);
       setBlocks(loaded.blocks);
       setCurrentBlockIndex(0);
+      setDocumentView("list");
       setDirty(false);
       setStatus({
         kind: loaded.tomlExists ? "success" : "error",
@@ -975,9 +1039,14 @@ function App() {
               </div>
             ) : null}
           </div>
-          <button className="icon-button" onClick={chooseProject} title="Open project">
-            <Upload size={17} />
-          </button>
+          <div className="sidebar-actions">
+            <button className="icon-button" onClick={chooseProject} title="Open project">
+              <Upload size={17} />
+            </button>
+            <button className="icon-button" onClick={() => setControlPanelOpen(true)} title="Control panel">
+              <Settings size={17} />
+            </button>
+          </div>
         </div>
         <label className="search-box">
           <Search size={15} />
@@ -989,13 +1058,21 @@ function App() {
       <section className="workspace">
         <header className="topbar">
           <div className="current-file">
-            <span>{selectedFile?.relativePath ?? "No document selected"}</span>
+            <button
+              type="button"
+              disabled={!selectedFile || documentView !== "detail"}
+              onClick={() => setDocumentView("list")}
+              title={
+                selectedFile && documentView === "detail"
+                  ? "Back to all keys"
+                  : selectedFile?.relativePath ?? "No document selected"
+              }
+            >
+              {filenameFromPath(selectedFile?.relativePath)}
+            </button>
             {dirty ? <small>Unsaved</small> : null}
           </div>
           <div className="toolbar">
-            <button className="icon-button" onClick={() => setControlPanelOpen(true)} title="Control panel">
-              <Settings size={17} />
-            </button>
             <label className="language-select">
               <Languages size={16} />
               <select value={language} onChange={(event) => setLanguage(event.target.value)}>
@@ -1006,49 +1083,58 @@ function App() {
                 ))}
               </select>
             </label>
-            <div className="progress" title={`Block progress ${blockPosition}`}>
-              <div style={{ width: `${progress}%` }} />
-            </div>
-            <span className="progress-text">{progress}%</span>
-            <label className="jump-control" title="Jump to block">
-              <Hash size={15} />
-              <input
-                type="number"
-                min="1"
-                max={Math.max(1, blocks.length)}
-                value={blocks.length ? currentBlockIndex + 1 : ""}
-                disabled={!blocks.length || status.kind === "saving" || status.kind === "rebuilding"}
-                onChange={(event) => jumpToBlock(event.target.value)}
-              />
-              <span>/ {blocks.length}</span>
-            </label>
-            <button
-              className="toolbar-button"
-              onClick={() => setCurrentBlockIndex((index) => Math.max(0, index - 1))}
-              disabled={!canGoPrevious || status.kind === "saving" || status.kind === "rebuilding"}
-              title="Previous key"
-            >
-              <ArrowLeft size={16} />
-              Previous
-            </button>
-            <span className="block-counter">{blockPosition}</span>
-            <button
-              className="toolbar-button"
-              onClick={() => setCurrentBlockIndex((index) => Math.min(blocks.length - 1, index + 1))}
-              disabled={!canGoNext || status.kind === "saving" || status.kind === "rebuilding"}
-              title="Next key"
-            >
-              Next
-              <ArrowRight size={16} />
-            </button>
-            <button
-              className="toolbar-button strong"
-              onClick={() => void save(true)}
-              disabled={!dirty || !document || status.kind === "saving"}
-            >
-              {status.kind === "saving" ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
-              Save & Next
-            </button>
+            {selectedFile && documentView === "detail" ? (
+              <>
+                <button
+                  className="toolbar-button"
+                  onClick={() => setDocumentView("list")}
+                  disabled={status.kind === "saving" || status.kind === "rebuilding"}
+                  title="Back to all keys"
+                >
+                  <ArrowLeft size={16} />
+                  All keys
+                </button>
+                <label className="jump-control" title="Jump to block">
+                  <Hash size={15} />
+                  <input
+                    type="number"
+                    min="1"
+                    max={Math.max(1, blocks.length)}
+                    value={blocks.length ? currentBlockIndex + 1 : ""}
+                    disabled={!blocks.length || status.kind === "saving" || status.kind === "rebuilding"}
+                    onChange={(event) => jumpToBlock(event.target.value)}
+                  />
+                  <span>/ {blocks.length}</span>
+                </label>
+                <button
+                  className="toolbar-button preview-button"
+                  onClick={() => setCurrentBlockIndex((index) => Math.max(0, index - 1))}
+                  disabled={!canGoPrevious || status.kind === "saving" || status.kind === "rebuilding"}
+                  title="Previous key"
+                >
+                  <ArrowLeft size={16} />
+                  Previous
+                </button>
+                <span className="block-counter">{blockPosition}</span>
+                <button
+                  className="toolbar-button preview-button"
+                  onClick={() => setCurrentBlockIndex((index) => Math.min(blocks.length - 1, index + 1))}
+                  disabled={!canGoNext || status.kind === "saving" || status.kind === "rebuilding"}
+                  title="Next key"
+                >
+                  Next
+                  <ArrowRight size={16} />
+                </button>
+                <button
+                  className="toolbar-button strong"
+                  onClick={() => void save(true)}
+                  disabled={!dirty || !document || status.kind === "saving"}
+                >
+                  {status.kind === "saving" ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+                  Save & Next
+                </button>
+              </>
+            ) : null}
             <button
               className="toolbar-button"
               onClick={rebuild}
@@ -1084,6 +1170,12 @@ function App() {
 
         {!selectedFile ? (
           <div className="empty-state">Select a document</div>
+        ) : documentView === "list" ? (
+          document?.tomlExists ? (
+            <BlockTable blocks={blocks} onOpenBlock={openBlock} />
+          ) : (
+            <div className="empty-state">No TOML file for this document. Run rebuild.</div>
+          )
         ) : (
           <main className="translation-structure">
             <div className="structure-header">
@@ -1114,6 +1206,9 @@ function App() {
                       setDirty(true);
                     }}
                   />
+                  <div className="editor-progress" aria-label="Block progress">
+                    <div style={{ width: `${progress}%` }} />
+                  </div>
                 </article>
               ) : (
                 <div className="empty-state">

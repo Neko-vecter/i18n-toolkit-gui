@@ -128,11 +128,16 @@ button {
 
 .sidebar-top {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 36px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   padding: 16px;
   border-bottom: 1px solid #e4ded3;
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 6px;
 }
 
 .project-label {
@@ -265,8 +270,11 @@ button {
 .workspace {
   display: grid;
   position: relative;
+  height: 100vh;
   min-width: 0;
+  min-height: 0;
   grid-template-rows: 64px 34px minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .topbar {
@@ -285,11 +293,27 @@ button {
   font-weight: 750;
 }
 
-.current-file span {
+.current-file button {
   display: block;
+  max-width: 100%;
   overflow: hidden;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font-weight: inherit;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.current-file button:disabled {
+  cursor: default;
+}
+
+.current-file button:not(:disabled):hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .current-file small {
@@ -323,27 +347,6 @@ button {
   background: transparent;
   color: #252a31;
   font-weight: 700;
-}
-
-.progress {
-  width: 132px;
-  height: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e2ddd3;
-}
-
-.progress div {
-  height: 100%;
-  border-radius: inherit;
-  background: #3b836b;
-}
-
-.progress-text {
-  width: 42px;
-  color: #52606c;
-  font-size: 13px;
-  font-weight: 750;
 }
 
 .jump-control {
@@ -386,10 +389,17 @@ button {
 
 .toolbar-button {
   height: 38px;
+  border: 1px solid transparent;
   padding: 0 13px;
   color: #26323b;
   background: #ebe5dc;
   font-weight: 750;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
 }
 
 .toolbar-button.strong {
@@ -400,6 +410,17 @@ button {
 .toolbar-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.preview-button {
+  border-color: transparent;
+}
+
+.preview-button:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--surface-strong);
+  transform: translateY(-1px);
 }
 
 .status-line {
@@ -499,6 +520,107 @@ button {
   grid-row: 3;
 }
 
+.block-list {
+  grid-row: 3;
+  align-self: stretch;
+  justify-self: stretch;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg);
+  scrollbar-gutter: stable;
+}
+
+.block-list .empty-state {
+  min-height: 100%;
+}
+
+.block-list::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.block-list::-webkit-scrollbar-thumb {
+  border-width: 2px;
+}
+
+.block-table {
+  display: grid;
+  height: max-content;
+  min-width: 920px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.block-table-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.1fr) minmax(260px, 1.1fr);
+  min-height: 38px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface-strong);
+}
+
+.block-table-head {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+  min-height: 34px;
+  border-bottom-color: var(--border);
+  background: var(--surface);
+}
+
+.block-table-head div,
+.block-table-row button {
+  min-width: 0;
+  border-right: 1px solid var(--border-soft);
+}
+
+.block-table-head div {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.block-table-row button {
+  overflow: hidden;
+  padding: 0 12px;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 38px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.block-table-row button:last-child,
+.block-table-head div:last-child {
+  border-right: 0;
+}
+
+.block-table-row:not(.block-table-head):hover {
+  background: var(--accent-soft);
+}
+
+.block-table-row:not(.block-table-head):hover button {
+  color: var(--accent-strong);
+}
+
+.block-table-row .key-cell {
+  color: var(--muted);
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-size: 12px;
+}
+
 .structure-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -529,7 +651,7 @@ button {
 .block-pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) 6px;
   height: 100%;
   min-height: 100%;
   margin: 0;
@@ -577,6 +699,18 @@ button {
 .monaco-cell > section,
 .monaco-cell .monaco-editor {
   height: 100%;
+}
+
+.editor-progress {
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  background: var(--border);
+}
+
+.editor-progress div {
+  height: 100%;
+  background: var(--accent);
 }
 
 .synced-cursor-line {
@@ -723,7 +857,6 @@ button {
 .project-path,
 .status-line,
 .block-counter,
-.progress-text,
 .picker-hint,
 .range-row span {
   color: var(--muted);
@@ -766,14 +899,6 @@ button {
 .jump-control input {
   color: var(--text);
   background: transparent;
-}
-
-.progress {
-  background: var(--border);
-}
-
-.progress div {
-  background: var(--accent);
 }
 
 .status-line.error {
