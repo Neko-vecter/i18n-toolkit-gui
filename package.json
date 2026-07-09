@@ -8,13 +8,15 @@
     "dev": "node scripts/dev.mjs",
     "build:electron": "node scripts/build-electron.mjs",
     "build": "yarn build:electron && node ./node_modules/vite/bin/vite.js build",
+    "prepare:python-runtime": "node scripts/prepare-python-runtime.mjs",
+    "dist": "yarn prepare:python-runtime && yarn build && electron-builder",
+    "dist:win": "yarn prepare:python-runtime && yarn build && electron-builder --win portable",
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit && node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json --noEmit",
-    "preview": "yarn build && node ./node_modules/electron/cli.js ."
+    "preview": "node scripts/preview.mjs"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "@monaco-editor/react": "^4.7.0",
-    "electron": "^31.7.7",
     "lucide-react": "^0.468.0",
     "monaco-editor": "^0.55.1",
     "react": "^18.3.1",
@@ -25,7 +27,44 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "electron": "^31.7.7",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.5.4",
     "vite": "^5.4.2"
+  },
+  "build": {
+    "appId": "com.i18n-toolkit.app",
+    "productName": "i18n Toolkit",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "i18n-toolkit-python",
+        "to": "i18n-toolkit-python",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc"
+        ]
+      },
+      {
+        "from": "build/python-runtime",
+        "to": "python-runtime",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    }
   }
 }

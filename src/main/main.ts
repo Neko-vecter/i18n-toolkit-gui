@@ -265,15 +265,25 @@ async function saveTranslations(payload: SaveTranslationsPayload): Promise<Loade
 
 function toolkitPath() {
   const candidates = [
+    path.join(process.resourcesPath, "i18n-toolkit-python"),
     path.join(process.cwd(), "i18n-toolkit-python"),
     path.join(app.getAppPath(), "i18n-toolkit-python")
   ];
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
 }
 
-function runProcess(command: string, args: string[], cwd: string): Promise<RebuildResult> {
+function bundledPythonPath() {
+  const executable = process.platform === "win32" ? "python.exe" : "python";
+  const candidates = [
+    path.join(process.resourcesPath, "python-runtime", executable),
+    path.join(process.cwd(), "build", "python-runtime", executable)
+  ];
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+function runProcess(command: string, args: string[], cwd: string, env?: NodeJS.ProcessEnv): Promise<RebuildResult> {
   return new Promise((resolve) => {
-    const child = spawn(command, args, { cwd, shell: false });
+    const child = spawn(command, args, { cwd, shell: false, env: env ? { ...process.env, ...env } : process.env });
     const output: string[] = [];
 
     child.stdout.on("data", (chunk) => output.push(chunk.toString()));
@@ -287,24 +297,41 @@ function runProcess(command: string, args: string[], cwd: string): Promise<Rebui
   });
 }
 
+function bundledPythonScriptArgs(scriptPath: string, toolkitRoot: string, scriptArgs: string[]) {
+  const runner = [
+    "import os, runpy, sys",
+    "script = sys.argv[1]",
+    "toolkit = sys.argv[2]",
+    "sys.path.insert(0, toolkit)",
+    "sys.argv = [script, *sys.argv[3:]]",
+    "runpy.run_path(script, run_name='__main__')"
+  ].join("; ");
+
+  return ["-c", runner, scriptPath, toolkitRoot, ...scriptArgs];
+}
+
 async function runPythonScript(
   scriptName: string,
   projectRoot: string,
   relativePath: string,
   language: string
 ): Promise<RebuildResult> {
-  const scriptPath = path.join(toolkitPath(), scriptName);
+  const toolkitRoot = toolkitPath();
+  const scriptPath = path.join(toolkitRoot, scriptName);
   const docPath = path.join("docs", relativePath);
-  const scriptArgs = [scriptPath, "--input", docPath, "--lang", language];
-  const candidates =
+  const scriptArgs = ["--input", docPath, "--lang", language];
+  const bundledPython = bundledPythonPath();
+  const candidates = bundledPython
+    ? [{ command: bundledPython, args: bundledPythonScriptArgs(scriptPath, toolkitRoot, scriptArgs) }]
+    :
     process.platform === "win32"
       ? [
-          { command: "py", args: ["-3", ...scriptArgs] },
-          { command: "python", args: scriptArgs }
+          { command: "py", args: ["-3", scriptPath, ...scriptArgs] },
+          { command: "python", args: [scriptPath, ...scriptArgs] }
         ]
       : [
-          { command: "python3", args: scriptArgs },
-          { command: "python", args: scriptArgs }
+          { command: "python3", args: [scriptPath, ...scriptArgs] },
+          { command: "python", args: [scriptPath, ...scriptArgs] }
         ];
 
   let lastResult: RebuildResult = { ok: false, output: "" };

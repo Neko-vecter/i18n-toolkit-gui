@@ -550,14 +550,14 @@ button {
 .block-table {
   display: grid;
   height: max-content;
-  min-width: 920px;
+  min-width: 760px;
   color: var(--text);
   font-size: 13px;
 }
 
 .block-table-row {
   display: grid;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.1fr) minmax(260px, 1.1fr);
+  grid-template-columns: 20ch minmax(260px, 1fr) minmax(260px, 1fr);
   min-height: 38px;
   border-bottom: 1px solid var(--border-soft);
   background: var(--surface-strong);
@@ -586,6 +586,10 @@ button {
   font-size: 12px;
   font-weight: 850;
   text-transform: uppercase;
+}
+
+.block-table-head div:first-child {
+  padding: 0 8px;
 }
 
 .block-table-row button {
@@ -618,7 +622,8 @@ button {
 .block-table-row .key-cell {
   color: var(--muted);
   font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
-  font-size: 12px;
+  font-size: 11px;
+  padding: 0 8px;
 }
 
 .structure-header {
