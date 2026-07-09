@@ -423,6 +423,13 @@ app.whenReady().then(async () => {
               BrowserWindow.getFocusedWindow()?.webContents.send("project:openRequest");
             }
           },
+          {
+            label: "Config",
+            accelerator: "CmdOrCtrl+,",
+            click: () => {
+              BrowserWindow.getFocusedWindow()?.webContents.send("config:openRequest");
+            }
+          },
           { type: "separator" },
           { role: process.platform === "darwin" ? "close" : "quit" }
         ]

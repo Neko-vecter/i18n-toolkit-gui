@@ -35,6 +35,13 @@ const api = {
     return () => {
       ipcRenderer.removeListener("project:openRequest", listener);
     };
+  },
+  onOpenConfigRequest: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on("config:openRequest", listener);
+    return () => {
+      ipcRenderer.removeListener("config:openRequest", listener);
+    };
   }
 };
 
