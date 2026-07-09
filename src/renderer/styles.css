@@ -721,6 +721,11 @@ button {
   border-right: 1px solid #e4ded3;
 }
 
+.origin-cell .cursors-layer,
+.origin-cell .cursor {
+  display: none !important;
+}
+
 .empty-state {
   display: grid;
   height: 100%;

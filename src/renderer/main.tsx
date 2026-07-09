@@ -448,7 +448,6 @@ function SyncedMdxEditors({
       }
 
       const lineNumber = Math.min(event.position.lineNumber, model.getLineCount());
-      target.setPosition({ lineNumber, column: 1 });
       target.revealLineInCenterIfOutsideViewport(lineNumber);
       originCursorLineDecorations.current = target.deltaDecorations(originCursorLineDecorations.current, [
         {
