@@ -9,6 +9,9 @@ import {
   FolderOpen,
   Languages,
   Loader2,
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
   RefreshCw,
   Save,
   Search,
@@ -176,7 +179,17 @@ function FileTree({
   return <div className="file-tree">{renderNode(tree)}</div>;
 }
 
-function ProjectPicker({ onChoose, status }: { onChoose: () => void; status: StatusState }) {
+function ProjectPicker({
+  onChoose,
+  onOpenLast,
+  lastProjectPath,
+  status
+}: {
+  onChoose: () => void;
+  onOpenLast: () => void;
+  lastProjectPath: string | null;
+  status: StatusState;
+}) {
   return (
     <main className="picker">
       <section className="picker-panel">
@@ -186,8 +199,16 @@ function ProjectPicker({ onChoose, status }: { onChoose: () => void; status: Sta
         <h1>i18n Toolkit</h1>
         <button className="primary-button" onClick={onChoose}>
           <Upload size={18} />
-          Open project
+          Choose Docusaurus project
         </button>
+        {lastProjectPath ? (
+          <button className="secondary-button" onClick={onOpenLast} title={lastProjectPath}>
+            Open recent project
+          </button>
+        ) : null}
+        <div className="picker-hint">
+          Select the Docusaurus root folder that contains <code>docs/</code>.
+        </div>
         {status.kind === "error" ? <p className="error-text">{status.message}</p> : null}
       </section>
     </main>
@@ -195,14 +216,34 @@ function ProjectPicker({ onChoose, status }: { onChoose: () => void; status: Sta
 }
 
 function App() {
+  if (!window.i18nToolkit) {
+    return (
+      <main className="picker">
+        <section className="picker-panel">
+          <div className="mark">
+            <AlertTriangle size={32} />
+          </div>
+          <h1>Electron API unavailable</h1>
+          <p className="error-text">
+            Preload did not load. Restart with <code>yarn dev</code> so Electron main and preload are rebuilt.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   const [project, setProject] = useState<ProjectState | null>(null);
   const [language, setLanguage] = useState("");
   const [selectedFile, setSelectedFile] = useState<DocFile | null>(null);
   const [document, setDocument] = useState<LoadedDocument | null>(null);
   const [blocks, setBlocks] = useState<TranslationBlock[]>([]);
+  const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [filter, setFilter] = useState("");
+  const [lastProjectPath, setLastProjectPath] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusState>(emptyStatus);
+  const [lastLog, setLastLog] = useState("");
+  const [showLog, setShowLog] = useState(false);
 
   const filteredDocs = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -220,6 +261,11 @@ function App() {
     return Math.round((completed / blocks.length) * 100);
   }, [blocks]);
 
+  const currentBlock = blocks[currentBlockIndex];
+  const blockPosition = blocks.length ? `${currentBlockIndex + 1} / ${blocks.length}` : "0 / 0";
+  const canGoPrevious = currentBlockIndex > 0;
+  const canGoNext = currentBlockIndex < blocks.length - 1;
+
   async function chooseProject() {
     setStatus({ kind: "loading", message: "Opening project" });
     try {
@@ -233,6 +279,27 @@ function App() {
       setSelectedFile(null);
       setDocument(null);
       setBlocks([]);
+      setCurrentBlockIndex(0);
+      setDirty(false);
+      setStatus({ kind: "success", message: "Project loaded" });
+    } catch (error) {
+      setStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  async function openLastProject() {
+    if (!lastProjectPath) {
+      return;
+    }
+    setStatus({ kind: "loading", message: "Opening recent project" });
+    try {
+      const next = (await window.i18nToolkit.openProject(lastProjectPath)) as ProjectState;
+      setProject(next);
+      setLanguage(next.languages[0] ?? "en");
+      setSelectedFile(null);
+      setDocument(null);
+      setBlocks([]);
+      setCurrentBlockIndex(0);
       setDirty(false);
       setStatus({ kind: "success", message: "Project loaded" });
     } catch (error) {
@@ -250,6 +317,7 @@ function App() {
       const loaded = (await window.i18nToolkit.loadDocument(project.rootPath, lang, file.relativePath)) as LoadedDocument;
       setDocument(loaded);
       setBlocks(loaded.blocks);
+      setCurrentBlockIndex(0);
       setDirty(false);
       setStatus({
         kind: loaded.tomlExists ? "success" : "error",
@@ -260,7 +328,7 @@ function App() {
     }
   }
 
-  async function save() {
+  async function save(advanceAfterSave = false) {
     if (!project || !selectedFile || !document) {
       return;
     }
@@ -275,6 +343,9 @@ function App() {
       setDocument(saved);
       setBlocks(saved.blocks);
       setDirty(false);
+      if (advanceAfterSave && currentBlockIndex < saved.blocks.length - 1) {
+        setCurrentBlockIndex((index) => index + 1);
+      }
       setStatus({ kind: "success", message: "Saved" });
     } catch (error) {
       setStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
@@ -286,24 +357,36 @@ function App() {
       return;
     }
     setStatus({ kind: "rebuilding", message: "Rebuilding current file" });
+    setLastLog("");
+    setShowLog(false);
     try {
       const result = (await window.i18nToolkit.rebuildDocument({
         projectRoot: project.rootPath,
         language,
         relativePath: selectedFile.relativePath
       })) as RebuildResult;
+      setLastLog(result.output || "");
       if (!result.ok) {
-        setStatus({ kind: "error", message: result.output || "Rebuild failed" });
+        setShowLog(true);
+        setStatus({ kind: "error", message: "Rebuild failed. Open the log for full output." });
         return;
       }
       await loadSelected(selectedFile);
-      setStatus({ kind: "success", message: result.output || "Rebuilt" });
+      setStatus({ kind: "success", message: "Rebuilt" });
     } catch (error) {
-      setStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      setLastLog(message);
+      setShowLog(true);
+      setStatus({ kind: "error", message: "Rebuild failed. Open the log for full output." });
     }
   }
 
   useEffect(() => {
+    window.i18nToolkit
+      .getLastProjectPath()
+      .then((path: string | null) => setLastProjectPath(path))
+      .catch(() => setLastProjectPath(null));
+
     window.i18nToolkit
       .getInitialProject()
       .then((initial: ProjectState | null) => {
@@ -316,6 +399,10 @@ function App() {
       .catch((error: unknown) => {
         setStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
       });
+
+    return window.i18nToolkit.onOpenProjectRequest(() => {
+      void chooseProject();
+    });
   }, []);
 
   useEffect(() => {
@@ -325,7 +412,14 @@ function App() {
   }, [language]);
 
   if (!project) {
-    return <ProjectPicker onChoose={chooseProject} status={status} />;
+    return (
+      <ProjectPicker
+        onChoose={chooseProject}
+        onOpenLast={openLastProject}
+        lastProjectPath={lastProjectPath}
+        status={status}
+      />
+    );
   }
 
   return (
@@ -337,6 +431,12 @@ function App() {
             <div className="project-path" title={project.rootPath}>
               {project.rootPath}
             </div>
+            {project.validation.warnings.length ? (
+              <div className="project-warning" title={project.validation.warnings.join("\n")}>
+                <AlertTriangle size={13} />
+                <span>{project.validation.warnings.length} project warning</span>
+              </div>
+            ) : null}
           </div>
           <button className="icon-button" onClick={chooseProject} title="Open project">
             <Upload size={17} />
@@ -370,12 +470,35 @@ function App() {
               <div style={{ width: `${progress}%` }} />
             </div>
             <span className="progress-text">{progress}%</span>
-            <button className="toolbar-button" onClick={save} disabled={!dirty || !document || status.kind === "saving"}>
-              {status.kind === "saving" ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
-              Save
+            <button
+              className="toolbar-button"
+              onClick={() => setCurrentBlockIndex((index) => Math.max(0, index - 1))}
+              disabled={!canGoPrevious || status.kind === "saving" || status.kind === "rebuilding"}
+              title="Previous key"
+            >
+              <ArrowLeft size={16} />
+              Previous
+            </button>
+            <span className="block-counter">{blockPosition}</span>
+            <button
+              className="toolbar-button"
+              onClick={() => setCurrentBlockIndex((index) => Math.min(blocks.length - 1, index + 1))}
+              disabled={!canGoNext || status.kind === "saving" || status.kind === "rebuilding"}
+              title="Next key"
+            >
+              Next
+              <ArrowRight size={16} />
             </button>
             <button
               className="toolbar-button strong"
+              onClick={() => void save(true)}
+              disabled={!dirty || !document || status.kind === "saving"}
+            >
+              {status.kind === "saving" ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+              Save & Next
+            </button>
+            <button
+              className="toolbar-button"
               onClick={rebuild}
               disabled={!selectedFile || status.kind === "rebuilding"}
             >
@@ -388,52 +511,64 @@ function App() {
         <div className={`status-line ${status.kind}`}>
           {status.kind === "success" ? <Check size={15} /> : null}
           <span>{status.message}</span>
+          {lastLog ? (
+            <button className="log-toggle" onClick={() => setShowLog((visible) => !visible)}>
+              {showLog ? "Hide log" : "View log"}
+            </button>
+          ) : null}
         </div>
+
+        {showLog && lastLog ? (
+          <section className="log-panel">
+            <div className="log-header">
+              <span>Rebuild log</span>
+              <button className="log-toggle" onClick={() => setShowLog(false)}>
+                Close
+              </button>
+            </div>
+            <pre>{lastLog}</pre>
+          </section>
+        ) : null}
 
         {!selectedFile ? (
           <div className="empty-state">Select a document</div>
         ) : (
-          <main className="editor-grid">
-            <section className="pane">
-              <div className="pane-header">Original</div>
-              <pre className="original-view">
-                <code dangerouslySetInnerHTML={{ __html: highlightedMdx(document?.original ?? "") }} />
-              </pre>
-            </section>
-            <section className="pane">
-              <div className="pane-header">Translation</div>
-              <div className="blocks">
-                {blocks.length ? (
-                  blocks.map((block, index) => {
-                    const value = normalizeTomlText(block.translate);
-                    return (
-                      <article className="block" key={block.key || index}>
-                        <div className="block-title">
-                          <span>Block {index + 1}</span>
-                          <code>{block.key}</code>
-                        </div>
-                        <MdxEditor
-                          value={value}
-                          disabled={status.kind === "saving" || status.kind === "rebuilding"}
-                          onChange={(nextValue) => {
-                            setBlocks((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? { ...item, translate: toTomlText(nextValue, item.translate) }
-                                  : item
-                              )
-                            );
-                            setDirty(true);
-                          }}
-                        />
-                      </article>
-                    );
-                  })
-                ) : (
-                  <div className="empty-state">No TOML blocks</div>
-                )}
-              </div>
-            </section>
+          <main className="translation-structure">
+            <div className="structure-header">
+              <div>Original</div>
+              <div>Translation</div>
+            </div>
+            <div className="blocks">
+              {currentBlock ? (
+                <article className="block-pair single-block" key={currentBlock.key || currentBlockIndex}>
+                  <div className="block-title">
+                    <span>Block {currentBlockIndex + 1}</span>
+                    <code>{currentBlock.key}</code>
+                  </div>
+                  <pre className="origin-block">
+                    <code dangerouslySetInnerHTML={{ __html: highlightedMdx(normalizeTomlText(currentBlock.origin)) }} />
+                  </pre>
+                  <MdxEditor
+                    value={normalizeTomlText(currentBlock.translate)}
+                    disabled={status.kind === "saving" || status.kind === "rebuilding"}
+                    onChange={(nextValue) => {
+                      setBlocks((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === currentBlockIndex
+                            ? { ...item, translate: toTomlText(nextValue, item.translate) }
+                            : item
+                        )
+                      );
+                      setDirty(true);
+                    }}
+                  />
+                </article>
+              ) : (
+                <div className="empty-state">
+                  {document?.tomlExists ? "No TOML blocks" : "No TOML file for this document. Run rebuild."}
+                </div>
+              )}
+            </div>
           </main>
         )}
       </section>

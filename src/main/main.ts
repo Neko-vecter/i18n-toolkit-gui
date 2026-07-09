@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, type OpenDialogOptions } from "electron";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -9,6 +9,7 @@ import type {
   DocFile,
   LoadedDocument,
   ProjectState,
+  ProjectValidation,
   RebuildPayload,
   RebuildResult,
   SaveTranslationsPayload,
@@ -18,6 +19,10 @@ import type {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const docsPluginPath = path.join("docusaurus-plugin-content-docs", "current");
+
+if (process.env.I18N_TOOLKIT_DEV_USER_DATA) {
+  app.setPath("userData", process.env.I18N_TOOLKIT_DEV_USER_DATA);
+}
 
 interface StoredConfig {
   lastProjectRoot?: string;
@@ -127,16 +132,52 @@ async function scanLanguages(projectRoot: string): Promise<string[]> {
   return languages.sort((a, b) => a.localeCompare(b));
 }
 
+async function validateProject(projectRoot: string): Promise<ProjectValidation> {
+  const hasDocs = await exists(path.join(projectRoot, "docs"));
+  const hasPackageJson = await exists(path.join(projectRoot, "package.json"));
+  const hasI18n = await exists(path.join(projectRoot, "i18n"));
+  const configCandidates = [
+    "docusaurus.config.js",
+    "docusaurus.config.mjs",
+    "docusaurus.config.cjs",
+    "docusaurus.config.ts"
+  ];
+  const configChecks = await Promise.all(
+    configCandidates.map((configName) => exists(path.join(projectRoot, configName)))
+  );
+  const hasDocusaurusConfig = configChecks.some(Boolean);
+  const warnings: string[] = [];
+
+  if (!hasDocusaurusConfig) {
+    warnings.push("No docusaurus.config.* file found.");
+  }
+  if (!hasPackageJson) {
+    warnings.push("No package.json found.");
+  }
+  if (!hasI18n) {
+    warnings.push("No i18n/ folder found yet. Languages will default to en.");
+  }
+
+  return {
+    hasDocs,
+    hasDocusaurusConfig,
+    hasPackageJson,
+    hasI18n,
+    warnings
+  };
+}
+
 async function openProject(projectRoot: string): Promise<ProjectState> {
-  const docsRoot = path.join(projectRoot, "docs");
-  if (!(await exists(docsRoot))) {
+  const validation = await validateProject(projectRoot);
+  if (!validation.hasDocs) {
     throw new Error(`Invalid project folder: ${projectRoot} does not contain docs/.`);
   }
 
   const state: ProjectState = {
     rootPath: projectRoot,
     docs: await scanDocs(projectRoot),
-    languages: await scanLanguages(projectRoot)
+    languages: await scanLanguages(projectRoot),
+    validation
   };
 
   await writeConfig({ lastProjectRoot: projectRoot });
@@ -152,6 +193,26 @@ function parseTomlBlocks(rawToml: string): TranslationBlock[] {
     origin: String(block.origin ?? ""),
     translate: String(block.translate ?? "")
   }));
+}
+
+function tomlMultiline(value: string) {
+  const normalized = value.replace(/\r\n/g, "\n");
+  const escaped = normalized.replace(/'''/g, "''\\'");
+  return `'''\n${escaped.endsWith("\n") ? escaped : `${escaped}\n`}'''`;
+}
+
+function serializeTranslationToml(blocks: TranslationBlock[]) {
+  const lines = ["[metadata]", ""];
+
+  for (const block of blocks) {
+    lines.push("[[block]]");
+    lines.push(`key = ${JSON.stringify(block.key)}`);
+    lines.push(`origin = ${tomlMultiline(block.origin)}`);
+    lines.push(`translate = ${tomlMultiline(block.translate)}`);
+    lines.push("");
+  }
+
+  return lines.join("\n");
 }
 
 async function loadDocument(
@@ -189,12 +250,16 @@ async function saveTranslations(payload: SaveTranslationsPayload): Promise<Loade
   const translationByKey = new Map(payload.blocks.map((block) => [block.key, block.translate]));
   const blocks = Array.isArray(parsed.block) ? parsed.block : [];
 
-  parsed.block = blocks.map((block) => {
+  const nextBlocks = blocks.map((block) => {
     const key = String(block.key ?? "");
-    return translationByKey.has(key) ? { ...block, translate: translationByKey.get(key) } : block;
+    return {
+      key,
+      origin: String(block.origin ?? ""),
+      translate: translationByKey.has(key) ? (translationByKey.get(key) ?? "") : String(block.translate ?? "")
+    };
   });
 
-  await fs.writeFile(tomlPath, TOML.stringify(parsed as any), "utf8");
+  await fs.writeFile(tomlPath, serializeTranslationToml(nextBlocks), "utf8");
   return loadDocument(payload.projectRoot, payload.language, payload.relativePath);
 }
 
@@ -229,7 +294,7 @@ async function runPythonScript(
   language: string
 ): Promise<RebuildResult> {
   const scriptPath = path.join(toolkitPath(), scriptName);
-  const docPath = docPathFor(projectRoot, relativePath);
+  const docPath = path.join("docs", relativePath);
   const scriptArgs = [scriptPath, "--input", docPath, "--lang", language];
   const candidates =
     process.platform === "win32"
@@ -290,7 +355,7 @@ async function createWindow() {
     title: "i18n Toolkit",
     backgroundColor: "#f6f3ee",
     webPreferences: {
-      preload: path.join(__dirname, "../preload/preload.js"),
+      preload: path.join(__dirname, "../preload/preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -313,11 +378,23 @@ app.whenReady().then(async () => {
     return openProject(config.lastProjectRoot);
   });
 
-  ipcMain.handle("project:choose", async () => {
-    const result = await dialog.showOpenDialog({
+  ipcMain.handle("project:getLastPath", async () => {
+    const config = await readConfig();
+    if (!config.lastProjectRoot || !(await exists(config.lastProjectRoot))) {
+      return null;
+    }
+    return config.lastProjectRoot;
+  });
+
+  ipcMain.handle("project:choose", async (event) => {
+    const config = await readConfig();
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options: OpenDialogOptions = {
       title: "Choose Docusaurus project folder",
+      defaultPath: config.lastProjectRoot,
       properties: ["openDirectory"]
-    });
+    };
+    const result = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
     if (result.canceled || !result.filePaths[0]) {
       return null;
     }
@@ -334,6 +411,28 @@ app.whenReady().then(async () => {
   ipcMain.handle("document:rebuild", (_event, payload: RebuildPayload) => rebuildDocument(payload));
 
   await createWindow();
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: "File",
+        submenu: [
+          {
+            label: "Open Docusaurus Project...",
+            accelerator: "CmdOrCtrl+O",
+            click: () => {
+              BrowserWindow.getFocusedWindow()?.webContents.send("project:openRequest");
+            }
+          },
+          { type: "separator" },
+          { role: process.platform === "darwin" ? "close" : "quit" }
+        ]
+      },
+      {
+        label: "View",
+        submenu: [{ role: "reload" }, { role: "toggleDevTools" }]
+      }
+    ])
+  );
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

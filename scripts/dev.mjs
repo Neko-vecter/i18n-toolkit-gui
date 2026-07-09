@@ -1,13 +1,30 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import http from "node:http";
 
 const port = 5173;
 const url = `http://127.0.0.1:${port}`;
 
-const vite = spawn(process.execPath, ["./node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(port)], {
-  stdio: "inherit",
-  shell: false
-});
+const compileElectron = spawnSync(
+  process.execPath,
+  ["scripts/build-electron.mjs"],
+  {
+    stdio: "inherit",
+    shell: false
+  }
+);
+
+if (compileElectron.status !== 0) {
+  process.exit(compileElectron.status ?? 1);
+}
+
+const vite = spawn(
+  process.execPath,
+  ["./node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(port), "--strictPort"],
+  {
+    stdio: "inherit",
+    shell: false
+  }
+);
 
 let electronProcess;
 
@@ -40,7 +57,8 @@ waitForServer().then(() => {
     shell: false,
     env: {
       ...process.env,
-      VITE_DEV_SERVER_URL: url
+      VITE_DEV_SERVER_URL: url,
+      I18N_TOOLKIT_DEV_USER_DATA: `${process.cwd()}\\.electron-user-data`
     }
   });
 

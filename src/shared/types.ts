@@ -2,6 +2,15 @@ export interface ProjectState {
   rootPath: string;
   docs: DocFile[];
   languages: string[];
+  validation: ProjectValidation;
+}
+
+export interface ProjectValidation {
+  hasDocs: boolean;
+  hasDocusaurusConfig: boolean;
+  hasPackageJson: boolean;
+  hasI18n: boolean;
+  warnings: string[];
 }
 
 export interface DocFile {

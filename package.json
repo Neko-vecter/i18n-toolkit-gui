@@ -6,7 +6,8 @@
   "main": "dist-electron/main/main.js",
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "build": "node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json && node ./node_modules/vite/bin/vite.js build",
+    "build:electron": "node scripts/build-electron.mjs",
+    "build": "yarn build:electron && node ./node_modules/vite/bin/vite.js build",
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit && node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json --noEmit",
     "preview": "yarn build && node ./node_modules/electron/cli.js ."
   },
