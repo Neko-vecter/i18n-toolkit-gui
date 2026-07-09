@@ -127,20 +127,22 @@ function configureMonacoMdx(monacoInstance: typeof Monaco) {
   monacoMdxConfigured = true;
   monacoInstance.languages.register({ id: "mdx", extensions: [".mdx", ".md"] });
   monacoInstance.languages.setLanguageConfiguration("mdx", {
+    comments: {
+      blockComment: ["{/*", "*/}"]
+    },
     brackets: [
       ["{", "}"],
       ["[", "]"],
-      ["(", ")"],
-      ["<", ">"]
+      ["(", ")"]
     ],
     autoClosingPairs: [
       { open: "{", close: "}" },
       { open: "[", close: "]" },
       { open: "(", close: ")" },
-      { open: "<", close: ">" },
-      { open: '"', close: '"' },
-      { open: "'", close: "'" },
-      { open: "`", close: "`" }
+      { open: "<", close: ">", notIn: ["string"] },
+      { open: '"', close: '"', notIn: ["string"] },
+      { open: "'", close: "'", notIn: ["string"] },
+      { open: "/*", close: "*/", notIn: ["string"] }
     ],
     surroundingPairs: [
       { open: "{", close: "}" },
@@ -149,7 +151,9 @@ function configureMonacoMdx(monacoInstance: typeof Monaco) {
       { open: "<", close: ">" },
       { open: '"', close: '"' },
       { open: "'", close: "'" },
-      { open: "`", close: "`" }
+      { open: "`", close: "`" },
+      { open: "_", close: "_" },
+      { open: "*", close: "*" }
     ]
   });
 
@@ -158,49 +162,101 @@ function configureMonacoMdx(monacoInstance: typeof Monaco) {
     tokenPostfix: ".mdx",
     tokenizer: {
       root: [
-        [/^---\s*$/, "delimiter.frontmatter", "@frontmatter"],
-        [/^```.*$/, "delimiter.code", "@codeblock"],
-        [/^#{1,6}\s.+$/, "keyword.heading"],
-        [/^>\s.+$/, "comment.quote"],
-        [/^\s*[-*+]\s+/, "keyword.list"],
-        [/^\s*\d+\.\s+/, "keyword.list"],
-        [/^import\s+.*$/, "keyword.import"],
-        [/^export\s+.*$/, "keyword.export"],
+        [/^---\s*$/, "delimiter.frontmatter", "@yamlFrontmatter"],
+        [/^\+\+\+\s*$/, "delimiter.frontmatter", "@tomlFrontmatter"],
+        [
+          /^(\s{0,3})(`{3,}|~{3,})(\s*[\w-]+)?(.*)$/,
+          ["", "delimiter.code", "meta.code.info", { token: "meta.code.attrs", next: "@codeblock" }]
+        ],
+        [/^(import|export)\b.*$/, "keyword.esm"],
+        [/^\s{0,3}(#{1,6})(?=\s|$)/, "keyword.heading", "@heading"],
+        [/^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/, "delimiter.thematic"],
+        [/^\s{0,3}>\s?/, "comment.quote"],
+        [/^\s{0,3}([-+*])(\s+\[[ xX]\])?/, ["keyword.list", "keyword.task"]],
+        [/^\s{0,3}(\d+\.)(\s+\[[ xX]\])?/, ["keyword.list", "keyword.task"]],
+        [/^\s{0,3}\[[^\]]+\]:/, "string.link.definition"],
+        [/^\s*\|.*\|\s*$/, "markup.table"],
         [/\{\/\*/, "comment", "@jsxComment"],
         [/<!--/, "comment", "@htmlComment"],
-        [/<\/?[A-Z][\w.]*/, "tag", "@jsxTag"],
-        [/<\/?[a-z][\w-]*/, "tag", "@jsxTag"],
-        [/`[^`]+`/, "string.inlineCode"],
-        [/\*\*[^*]+\*\*/, "strong"],
-        [/\*[^*]+\*/, "emphasis"],
-        [/\[[^\]]+\]\([^)]+\)/, "string.link"],
-        [/[{}]/, "delimiter.bracket"],
-        [/"([^"\\]|\\.)*$/, "string.invalid"],
-        [/'([^'\\]|\\.)*$/, "string.invalid"],
-        [/"/, "string", "@doubleString"],
-        [/'/, "string", "@singleString"]
+        [/<\/?(?=[A-Za-z])/, "delimiter.jsx", "@jsxTag"],
+        [/\{/, "delimiter.expression", "@mdxExpression"],
+        { include: "@markdownInline" }
       ],
-      frontmatter: [
+      yamlFrontmatter: [
         [/^---\s*$/, "delimiter.frontmatter", "@pop"],
+        [/^\s*#.*$/, "comment.frontmatter"],
         [/^\w[\w-]*(?=\s*:)/, "attribute.name"],
         [/:\s*/, "delimiter"],
         [/.*$/, "string.yaml"]
       ],
+      tomlFrontmatter: [
+        [/^\+\+\+\s*$/, "delimiter.frontmatter", "@pop"],
+        [/^\s*#.*$/, "comment.frontmatter"],
+        [/^\s*\[[^\]]+\]/, "type.toml"],
+        [/^\s*[\w.-]+(?=\s*=)/, "attribute.name"],
+        [/=/, "delimiter"],
+        [/.*$/, "string.toml"]
+      ],
       codeblock: [
-        [/^```\s*$/, "delimiter.code", "@pop"],
+        [/^\s*(`{3,}|~{3,})\s*$/, "delimiter.code", "@pop"],
         [/.*$/, "string.code"]
       ],
+      heading: [
+        [/$/, "", "@pop"],
+        { include: "@markdownInline" }
+      ],
+      markdownInline: [
+        [/\\[\\`*_[\]{}()#+\-.!|<>]/, "constant.escape"],
+        [/&(?:#\d+|#x[\da-fA-F]+|[a-zA-Z][\w.-]+);/, "constant.character.reference"],
+        [/!\[[^\]]*\]\([^)]+\)/, "string.link.image"],
+        [/\[[^\]]+\]\([^)]+\)/, "string.link"],
+        [/\[[^\]]+\]\[[^\]]*\]/, "string.link.reference"],
+        [/https?:\/\/[^\s<)]+/, "string.link.autolink"],
+        [/@[A-Za-z0-9][\w-]*/, "constant.github.mention"],
+        [/#\d+\b/, "constant.github.reference"],
+        [/:[A-Za-z0-9_+-]+:/, "constant.gemoji"],
+        [/`+[^`]*`+/, "string.inlineCode"],
+        [/~~[^~]+~~/, "strikethrough"],
+        [/\*\*[^*]+?\*\*/, "strong"],
+        [/__[^_]+?__/, "strong"],
+        [/\*[^*\s][^*]*\*/, "emphasis"],
+        [/_[^_\s][^_]*_/, "emphasis"]
+      ],
+      mdxExpression: [
+        [/\{\/\*/, "comment", "@jsxComment"],
+        [/\/\*/, "comment", "@jsBlockComment"],
+        [/\/\/.*$/, "comment"],
+        [/\{/, "delimiter.expression", "@mdxExpression"],
+        [/\}/, "delimiter.expression", "@pop"],
+        [/\b(?:await|break|case|catch|const|continue|default|do|else|finally|for|from|function|if|import|in|let|of|return|switch|throw|try|var|while|yield)\b/, "keyword.js"],
+        [/\b(?:true|false|null|undefined|NaN|Infinity)\b/, "constant.language"],
+        [/\b[A-Z][\w$]*(?=\s*[({.])/, "support.class.component"],
+        [/\b[\w$]+(?=\s*:)/, "attribute.name"],
+        [/\d+(?:\.\d+)?/, "number"],
+        [/"([^"\\]|\\.)*$/, "string.invalid"],
+        [/'([^'\\]|\\.)*$/, "string.invalid"],
+        [/`/, "string.template", "@templateString"],
+        [/"/, "string", "@doubleString"],
+        [/'/, "string", "@singleString"],
+        [/[()[\].,?:;=+\-*/%&|!<>]+/, "delimiter"]
+      ],
       jsxTag: [
-        [/\s+[A-Za-z_$][\w$-]*(?=\=)/, "attribute.name"],
-        [/\s+[A-Za-z_$][\w$-]*/, "attribute.name"],
+        [/[A-Z][\w$]*(?:\.[A-Z][\w$]*)*/, "support.class.component"],
+        [/[a-z][\w-]*/, "tag"],
+        [/[A-Za-z_$][\w$-]*(?=\s*=)/, "attribute.name"],
+        [/[A-Za-z_$][\w$-]*/, "attribute.name"],
         [/=/, "delimiter"],
         [/"([^"\\]|\\.)*"/, "attribute.value"],
         [/'([^'\\]|\\.)*'/, "attribute.value"],
-        [/\{[^}]*\}/, "delimiter.bracket"],
-        [/\/?>/, "tag", "@pop"]
+        [/\{/, "delimiter.expression", "@mdxExpression"],
+        [/\/?>/, "delimiter.jsx", "@pop"]
       ],
       jsxComment: [
         [/\*\/\}/, "comment", "@pop"],
+        [/./, "comment"]
+      ],
+      jsBlockComment: [
+        [/\*\//, "comment", "@pop"],
         [/./, "comment"]
       ],
       htmlComment: [
@@ -216,6 +272,12 @@ function configureMonacoMdx(monacoInstance: typeof Monaco) {
         [/[^\\']+/, "string"],
         [/\\./, "string.escape"],
         [/'/, "string", "@pop"]
+      ],
+      templateString: [
+        [/[^\\`$]+/, "string.template"],
+        [/\\./, "string.escape"],
+        [/\$\{/, "delimiter.expression", "@mdxExpression"],
+        [/`/, "string.template", "@pop"]
       ]
     }
   });
@@ -226,20 +288,35 @@ function configureMonacoMdx(monacoInstance: typeof Monaco) {
     rules: [
       { token: "keyword.heading", foreground: "009a9c", fontStyle: "bold" },
       { token: "keyword.list", foreground: "00aeb0" },
+      { token: "keyword.task", foreground: "009a9c" },
       { token: "keyword.import", foreground: "7a3f99" },
       { token: "keyword.export", foreground: "7a3f99" },
+      { token: "keyword.esm", foreground: "7a3f99" },
+      { token: "keyword.js", foreground: "7a3f99" },
       { token: "tag", foreground: "116b5f" },
+      { token: "support.class.component", foreground: "0f766e" },
       { token: "attribute.name", foreground: "8a4b08" },
       { token: "attribute.value", foreground: "9a3412" },
       { token: "delimiter.bracket", foreground: "4b5563" },
+      { token: "delimiter.jsx", foreground: "4b5563" },
+      { token: "delimiter.expression", foreground: "009a9c" },
       { token: "delimiter.code", foreground: "6b7280" },
       { token: "delimiter.frontmatter", foreground: "6b7280" },
+      { token: "delimiter.thematic", foreground: "6b7280" },
+      { token: "meta.code.info", foreground: "0f766e", fontStyle: "bold" },
+      { token: "meta.code.attrs", foreground: "6b7280" },
+      { token: "markup.table", foreground: "2563eb" },
+      { token: "type.toml", foreground: "0f766e", fontStyle: "bold" },
       { token: "string", foreground: "9a3412" },
+      { token: "string.template", foreground: "9a3412" },
       { token: "string.inlineCode", foreground: "b42318" },
       { token: "string.link", foreground: "1d4ed8" },
+      { token: "constant", foreground: "0f766e" },
+      { token: "number", foreground: "0f766e" },
       { token: "comment", foreground: "6a737d", fontStyle: "italic" },
       { token: "strong", fontStyle: "bold" },
-      { token: "emphasis", fontStyle: "italic" }
+      { token: "emphasis", fontStyle: "italic" },
+      { token: "strikethrough", fontStyle: "strikethrough" }
     ],
     colors: {
       "editor.background": "#ffffff",
@@ -257,20 +334,35 @@ function configureMonacoMdx(monacoInstance: typeof Monaco) {
     rules: [
       { token: "keyword.heading", foreground: "00fbfd", fontStyle: "bold" },
       { token: "keyword.list", foreground: "00dee0" },
+      { token: "keyword.task", foreground: "00fbfd" },
       { token: "keyword.import", foreground: "c084fc" },
       { token: "keyword.export", foreground: "c084fc" },
+      { token: "keyword.esm", foreground: "c084fc" },
+      { token: "keyword.js", foreground: "c084fc" },
       { token: "tag", foreground: "5eead4" },
+      { token: "support.class.component", foreground: "2dd4bf" },
       { token: "attribute.name", foreground: "fdba74" },
       { token: "attribute.value", foreground: "fca5a5" },
       { token: "delimiter.bracket", foreground: "cbd5e1" },
+      { token: "delimiter.jsx", foreground: "cbd5e1" },
+      { token: "delimiter.expression", foreground: "00fbfd" },
       { token: "delimiter.code", foreground: "94a3b8" },
       { token: "delimiter.frontmatter", foreground: "94a3b8" },
+      { token: "delimiter.thematic", foreground: "94a3b8" },
+      { token: "meta.code.info", foreground: "5eead4", fontStyle: "bold" },
+      { token: "meta.code.attrs", foreground: "94a3b8" },
+      { token: "markup.table", foreground: "93c5fd" },
+      { token: "type.toml", foreground: "5eead4", fontStyle: "bold" },
       { token: "string", foreground: "fca5a5" },
+      { token: "string.template", foreground: "fca5a5" },
       { token: "string.inlineCode", foreground: "00d4d6" },
       { token: "string.link", foreground: "60a5fa" },
+      { token: "constant", foreground: "5eead4" },
+      { token: "number", foreground: "5eead4" },
       { token: "comment", foreground: "94a3b8", fontStyle: "italic" },
       { token: "strong", fontStyle: "bold" },
-      { token: "emphasis", fontStyle: "italic" }
+      { token: "emphasis", fontStyle: "italic" },
+      { token: "strikethrough", fontStyle: "strikethrough" }
     ],
     colors: {
       "editor.background": "#0f1720",
