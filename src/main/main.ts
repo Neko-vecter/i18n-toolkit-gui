@@ -1,0 +1,349 @@
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { existsSync } from "node:fs";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawn } from "node:child_process";
+import * as TOML from "@iarna/toml";
+import type {
+  DocFile,
+  LoadedDocument,
+  ProjectState,
+  RebuildPayload,
+  RebuildResult,
+  SaveTranslationsPayload,
+  TranslationBlock
+} from "../shared/types.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const docsPluginPath = path.join("docusaurus-plugin-content-docs", "current");
+
+interface StoredConfig {
+  lastProjectRoot?: string;
+}
+
+interface TomlDocument {
+  metadata?: Record<string, unknown>;
+  block?: Array<Record<string, unknown>>;
+}
+
+function configPath() {
+  return path.join(app.getPath("userData"), "config.json");
+}
+
+async function readConfig(): Promise<StoredConfig> {
+  try {
+    return JSON.parse(await fs.readFile(configPath(), "utf8")) as StoredConfig;
+  } catch {
+    return {};
+  }
+}
+
+async function writeConfig(config: StoredConfig) {
+  await fs.mkdir(path.dirname(configPath()), { recursive: true });
+  await fs.writeFile(configPath(), JSON.stringify(config, null, 2), "utf8");
+}
+
+async function exists(targetPath: string) {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeRelative(filePath: string) {
+  return filePath.split(path.sep).join("/");
+}
+
+function tomlPathFor(projectRoot: string, language: string, relativePath: string) {
+  const parsed = path.parse(relativePath);
+  const tomlRelative = path.join(parsed.dir, `${parsed.name}.toml`);
+  return path.join(projectRoot, "i18n", language, docsPluginPath, tomlRelative);
+}
+
+function docPathFor(projectRoot: string, relativePath: string) {
+  return path.join(projectRoot, "docs", relativePath);
+}
+
+async function scanDocs(projectRoot: string): Promise<DocFile[]> {
+  const docsRoot = path.join(projectRoot, "docs");
+  const files: DocFile[] = [];
+
+  async function walk(dir: string) {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const entry of entries) {
+      const absolutePath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(absolutePath);
+        continue;
+      }
+
+      const extension = path.extname(entry.name);
+      if (extension !== ".md" && extension !== ".mdx") {
+        continue;
+      }
+
+      files.push({
+        name: entry.name,
+        relativePath: normalizeRelative(path.relative(docsRoot, absolutePath)),
+        absolutePath,
+        extension
+      });
+    }
+  }
+
+  if (await exists(docsRoot)) {
+    await walk(docsRoot);
+  }
+
+  return files;
+}
+
+async function scanLanguages(projectRoot: string): Promise<string[]> {
+  const i18nRoot = path.join(projectRoot, "i18n");
+  if (!(await exists(i18nRoot))) {
+    return [];
+  }
+
+  const entries = await fs.readdir(i18nRoot, { withFileTypes: true });
+  const languages: string[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const contentRoot = path.join(i18nRoot, entry.name, docsPluginPath);
+    if (await exists(contentRoot)) {
+      languages.push(entry.name);
+    }
+  }
+
+  return languages.sort((a, b) => a.localeCompare(b));
+}
+
+async function openProject(projectRoot: string): Promise<ProjectState> {
+  const docsRoot = path.join(projectRoot, "docs");
+  if (!(await exists(docsRoot))) {
+    throw new Error(`Invalid project folder: ${projectRoot} does not contain docs/.`);
+  }
+
+  const state: ProjectState = {
+    rootPath: projectRoot,
+    docs: await scanDocs(projectRoot),
+    languages: await scanLanguages(projectRoot)
+  };
+
+  await writeConfig({ lastProjectRoot: projectRoot });
+  return state;
+}
+
+function parseTomlBlocks(rawToml: string): TranslationBlock[] {
+  const parsed = TOML.parse(rawToml) as TomlDocument;
+  const blocks = Array.isArray(parsed.block) ? parsed.block : [];
+
+  return blocks.map((block) => ({
+    key: String(block.key ?? ""),
+    origin: String(block.origin ?? ""),
+    translate: String(block.translate ?? "")
+  }));
+}
+
+async function loadDocument(
+  projectRoot: string,
+  language: string,
+  relativePath: string
+): Promise<LoadedDocument> {
+  const originalPath = docPathFor(projectRoot, relativePath);
+  const tomlPath = tomlPathFor(projectRoot, language, relativePath);
+  const [original, tomlExists] = await Promise.all([
+    fs.readFile(originalPath, "utf8"),
+    exists(tomlPath)
+  ]);
+
+  const blocks = tomlExists ? parseTomlBlocks(await fs.readFile(tomlPath, "utf8")) : [];
+
+  return {
+    projectRoot,
+    language,
+    relativePath,
+    original,
+    tomlPath,
+    tomlExists,
+    blocks
+  };
+}
+
+async function saveTranslations(payload: SaveTranslationsPayload): Promise<LoadedDocument> {
+  const tomlPath = tomlPathFor(payload.projectRoot, payload.language, payload.relativePath);
+  if (!(await exists(tomlPath))) {
+    throw new Error(`Cannot save translations because TOML does not exist: ${tomlPath}`);
+  }
+
+  const parsed = TOML.parse(await fs.readFile(tomlPath, "utf8")) as TomlDocument;
+  const translationByKey = new Map(payload.blocks.map((block) => [block.key, block.translate]));
+  const blocks = Array.isArray(parsed.block) ? parsed.block : [];
+
+  parsed.block = blocks.map((block) => {
+    const key = String(block.key ?? "");
+    return translationByKey.has(key) ? { ...block, translate: translationByKey.get(key) } : block;
+  });
+
+  await fs.writeFile(tomlPath, TOML.stringify(parsed as any), "utf8");
+  return loadDocument(payload.projectRoot, payload.language, payload.relativePath);
+}
+
+function toolkitPath() {
+  const candidates = [
+    path.join(process.cwd(), "i18n-toolkit-python"),
+    path.join(app.getAppPath(), "i18n-toolkit-python")
+  ];
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+}
+
+function runProcess(command: string, args: string[], cwd: string): Promise<RebuildResult> {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, { cwd, shell: false });
+    const output: string[] = [];
+
+    child.stdout.on("data", (chunk) => output.push(chunk.toString()));
+    child.stderr.on("data", (chunk) => output.push(chunk.toString()));
+    child.on("error", (error) => {
+      resolve({ ok: false, output: `${command} failed to start: ${error.message}` });
+    });
+    child.on("close", (code) => {
+      resolve({ ok: code === 0, output: output.join("").trim() });
+    });
+  });
+}
+
+async function runPythonScript(
+  scriptName: string,
+  projectRoot: string,
+  relativePath: string,
+  language: string
+): Promise<RebuildResult> {
+  const scriptPath = path.join(toolkitPath(), scriptName);
+  const docPath = docPathFor(projectRoot, relativePath);
+  const scriptArgs = [scriptPath, "--input", docPath, "--lang", language];
+  const candidates =
+    process.platform === "win32"
+      ? [
+          { command: "py", args: ["-3", ...scriptArgs] },
+          { command: "python", args: scriptArgs }
+        ]
+      : [
+          { command: "python3", args: scriptArgs },
+          { command: "python", args: scriptArgs }
+        ];
+
+  let lastResult: RebuildResult = { ok: false, output: "" };
+  for (const candidate of candidates) {
+    lastResult = await runProcess(candidate.command, candidate.args, projectRoot);
+    if (lastResult.ok || !lastResult.output.includes("failed to start")) {
+      return lastResult;
+    }
+  }
+  return lastResult;
+}
+
+async function rebuildDocument(payload: RebuildPayload): Promise<RebuildResult> {
+  const middleware = await runPythonScript(
+    "build_file_middleware.py",
+    payload.projectRoot,
+    payload.relativePath,
+    payload.language
+  );
+  if (!middleware.ok) {
+    return {
+      ok: false,
+      output: `Middleware rebuild failed.\n\n${middleware.output}`
+    };
+  }
+
+  const i18n = await runPythonScript(
+    "build_file_i18n.py",
+    payload.projectRoot,
+    payload.relativePath,
+    payload.language
+  );
+
+  return {
+    ok: i18n.ok,
+    output: [`Middleware rebuild complete.`, middleware.output, `i18n rebuild ${i18n.ok ? "complete" : "failed"}.`, i18n.output]
+      .filter(Boolean)
+      .join("\n\n")
+  };
+}
+
+async function createWindow() {
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 960,
+    minWidth: 1080,
+    minHeight: 720,
+    title: "i18n Toolkit",
+    backgroundColor: "#f6f3ee",
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  if (devServerUrl) {
+    await win.loadURL(devServerUrl);
+  } else {
+    await win.loadFile(path.join(app.getAppPath(), "dist", "index.html"));
+  }
+}
+
+app.whenReady().then(async () => {
+  ipcMain.handle("project:getInitial", async () => {
+    const config = await readConfig();
+    if (!config.lastProjectRoot || !(await exists(path.join(config.lastProjectRoot, "docs")))) {
+      return null;
+    }
+    return openProject(config.lastProjectRoot);
+  });
+
+  ipcMain.handle("project:choose", async () => {
+    const result = await dialog.showOpenDialog({
+      title: "Choose Docusaurus project folder",
+      properties: ["openDirectory"]
+    });
+    if (result.canceled || !result.filePaths[0]) {
+      return null;
+    }
+    return openProject(result.filePaths[0]);
+  });
+
+  ipcMain.handle("project:open", (_event, rootPath: string) => openProject(rootPath));
+  ipcMain.handle("document:load", (_event, payload) =>
+    loadDocument(payload.projectRoot, payload.language, payload.relativePath)
+  );
+  ipcMain.handle("document:saveTranslations", (_event, payload: SaveTranslationsPayload) =>
+    saveTranslations(payload)
+  );
+  ipcMain.handle("document:rebuild", (_event, payload: RebuildPayload) => rebuildDocument(payload));
+
+  await createWindow();
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      void createWindow();
+    }
+  });
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
+});

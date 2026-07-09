@@ -1,0 +1,30 @@
+{
+  "name": "i18n-toolkit-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main/main.js",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json && node ./node_modules/vite/bin/vite.js build",
+    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit && node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json --noEmit",
+    "preview": "yarn build && node ./node_modules/electron/cli.js ."
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "electron": "^31.7.7",
+    "lucide-react": "^0.468.0",
+    "prismjs": "^1.29.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.15",
+    "@types/prismjs": "^1.26.5",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2"
+  }
+}
