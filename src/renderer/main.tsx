@@ -574,6 +574,12 @@ function SyncedMdxEditors({
 
   const mountTranslate: OnMount = (editor, monacoInstance) => {
     translateEditor.current = editor;
+    editor.addAction({
+      id: "i18n-toolkit.undo-translation",
+      label: "Undo translation edit",
+      keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyZ],
+      run: () => editor.trigger("keyboard", "undo", null)
+    });
     editor.onDidScrollChange((event) => {
       if (event.scrollTopChanged) {
         syncScroll(editor, originEditor.current);
@@ -670,6 +676,21 @@ function ControlPanel({
   onChange: (settings: AppSettings) => void;
   onClose: () => void;
 }) {
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!shortcutsOpen) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShortcutsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [shortcutsOpen]);
+
   if (!open) {
     return null;
   }
@@ -778,7 +799,54 @@ function ControlPanel({
             Minimap
           </label>
         </section>
+
+        <section className="setting-group">
+          <label>Keyboard shortcuts</label>
+          <button className="shortcut-button" type="button" onClick={() => setShortcutsOpen(true)}>
+            View shortcuts
+          </button>
+        </section>
       </div>
+
+      {shortcutsOpen ? (
+        <div className="shortcut-dialog-backdrop" onMouseDown={() => setShortcutsOpen(false)}>
+          <section
+            className="shortcut-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Keyboard shortcuts"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header>
+              <div>
+                <h2>Keyboard shortcuts</h2>
+                <p>Shortcuts are currently view-only.</p>
+              </div>
+              <button className="icon-button" type="button" onClick={() => setShortcutsOpen(false)} title="Close shortcuts">
+                <X size={17} />
+              </button>
+            </header>
+            <dl className="shortcut-list">
+              <div>
+                <dt>Undo</dt>
+                <dd>Ctrl / ⌘ + Z</dd>
+              </div>
+              <div>
+                <dt>Save</dt>
+                <dd>Ctrl / ⌘ + S</dd>
+              </div>
+              <div>
+                <dt>Save and next key</dt>
+                <dd>Ctrl / ⌘ + N</dd>
+              </div>
+              <div>
+                <dt>Save and previous key</dt>
+                <dd>Ctrl / ⌘ + B</dd>
+              </div>
+            </dl>
+          </section>
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -1103,6 +1171,7 @@ function App() {
   const [showLog, setShowLog] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [controlPanelOpen, setControlPanelOpen] = useState(false);
+  const shortcutBusy = useRef(false);
   const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() =>
     window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
   );
@@ -1227,8 +1296,8 @@ function App() {
   }
 
   async function save(advanceAfterSave = false) {
-    if (!project || !selectedFile || !document) {
-      return;
+    if (!project || !selectedFile || !document || status.kind === "saving" || status.kind === "rebuilding") {
+      return false;
     }
     const mismatchedBlockIndex = blocks.findIndex((block) => !hasMatchingLineCount(block.origin, block.translate));
     if (mismatchedBlockIndex !== -1) {
@@ -1238,7 +1307,7 @@ function App() {
         kind: "error",
         message: `Block ${mismatchedBlockIndex + 1}: translation line count must match the original before saving.`
       });
-      return;
+      return false;
     }
     setStatus({ kind: "saving", message: "Saving translations" });
     try {
@@ -1256,9 +1325,30 @@ function App() {
         setCurrentBlockIndex((index) => index + 1);
       }
       setStatus({ kind: "success", message: "Saved" });
+      return true;
     } catch (error) {
       setStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
+      return false;
     }
+  }
+
+  async function moveToAdjacentBlock(direction: -1 | 1) {
+    const nextIndex = currentBlockIndex + direction;
+    if (
+      !selectedFile ||
+      documentView !== "detail" ||
+      nextIndex < 0 ||
+      nextIndex >= blocks.length ||
+      status.kind === "saving" ||
+      status.kind === "rebuilding"
+    ) {
+      return;
+    }
+
+    if (dirty && !(await save())) {
+      return;
+    }
+    setCurrentBlockIndex(nextIndex);
   }
 
   async function rebuild() {
@@ -1323,6 +1413,32 @@ function App() {
       void chooseProject();
     });
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((!event.ctrlKey && !event.metaKey) || event.altKey) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (key !== "s" && key !== "n" && key !== "b") {
+        return;
+      }
+      event.preventDefault();
+      if (shortcutBusy.current) {
+        return;
+      }
+
+      shortcutBusy.current = true;
+      const action = key === "s" ? save() : moveToAdjacentBlock(key === "n" ? 1 : -1);
+      void action.finally(() => {
+        shortcutBusy.current = false;
+      });
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [blocks, currentBlockIndex, dirty, document, documentView, language, project, selectedFile, status.kind]);
 
   useEffect(() => {
     return window.i18nToolkit.onOpenConfigRequest(() => {

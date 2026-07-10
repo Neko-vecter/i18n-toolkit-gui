@@ -1241,3 +1241,94 @@ button {
   height: 16px;
   accent-color: var(--accent);
 }
+
+.shortcut-button {
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--corner-sm);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.shortcut-dialog-backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 32, 0.38);
+}
+
+.shortcut-dialog {
+  width: min(440px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--corner-sm);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.shortcut-dialog header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.shortcut-dialog h2,
+.shortcut-dialog p {
+  margin: 0;
+}
+
+.shortcut-dialog h2 {
+  font-size: 16px;
+}
+
+.shortcut-dialog p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.shortcut-list {
+  margin: 0;
+  padding: 8px 18px 16px;
+}
+
+.shortcut-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.shortcut-list div:last-child {
+  border-bottom: 0;
+}
+
+.shortcut-list dt {
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.shortcut-list dd {
+  margin: 0;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--corner-xs);
+  color: var(--muted-strong);
+  background: var(--surface-muted);
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+}
