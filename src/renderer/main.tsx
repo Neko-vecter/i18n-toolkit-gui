@@ -209,6 +209,27 @@ function configureMonacoMdx(monacoInstance: typeof Monaco) {
         [/^\s{0,3}(\d+\.)(\s+\[[ xX]\])?/, ["keyword.list", "keyword.task"]],
         [/^\s{0,3}\[[^\]]+\]:/, "string.link.definition"],
         [/^\s*\|.*\|\s*$/, "markup.table"],
+        [/^(\s*)(:{3,})\s*$/, ["", "delimiter.admonition"]],
+        [
+          /^(\s*)(:{3,})([A-Za-z][\w-]*)(\[)([^\]]*)(\])(\{[^}]*\})\s*$/,
+          ["", "delimiter.admonition", "keyword.admonition", "delimiter.admonition", "string.admonition.title", "delimiter.admonition", "meta.admonition.attributes"]
+        ],
+        [
+          /^(\s*)(:{3,})([A-Za-z][\w-]*)(\[)([^\]]*)(\])\s*$/,
+          ["", "delimiter.admonition", "keyword.admonition", "delimiter.admonition", "string.admonition.title", "delimiter.admonition"]
+        ],
+        [
+          /^(\s*)(:{3,})([A-Za-z][\w-]*)(\{[^}]*\})\s*$/,
+          ["", "delimiter.admonition", "keyword.admonition", "meta.admonition.attributes"]
+        ],
+        [
+          /^(\s*)(:{3,})([A-Za-z][\w-]*)(\s+)(.+)$/,
+          ["", "delimiter.admonition", "keyword.admonition", "", "string.admonition.title"]
+        ],
+        [
+          /^(\s*)(:{3,})([A-Za-z][\w-]*)\s*$/,
+          ["", "delimiter.admonition", "keyword.admonition"]
+        ],
         [/\{\/\*/, "comment", "@jsxComment"],
         [/<!--/, "comment", "@htmlComment"],
         [/<\/?(?=[A-Za-z])/, "delimiter.jsx", "@jsxTag"],
@@ -336,6 +357,10 @@ function configureMonacoMdx(monacoInstance: typeof Monaco) {
       { token: "delimiter.code", foreground: "6b7280" },
       { token: "delimiter.frontmatter", foreground: "6b7280" },
       { token: "delimiter.thematic", foreground: "6b7280" },
+      { token: "delimiter.admonition", foreground: "7a3f99", fontStyle: "bold" },
+      { token: "keyword.admonition", foreground: "b45309", fontStyle: "bold" },
+      { token: "string.admonition.title", foreground: "0f766e" },
+      { token: "meta.admonition.attributes", foreground: "6b7280" },
       { token: "meta.code.info", foreground: "0f766e", fontStyle: "bold" },
       { token: "meta.code.attrs", foreground: "6b7280" },
       { token: "markup.table", foreground: "2563eb" },
@@ -382,6 +407,10 @@ function configureMonacoMdx(monacoInstance: typeof Monaco) {
       { token: "delimiter.code", foreground: "94a3b8" },
       { token: "delimiter.frontmatter", foreground: "94a3b8" },
       { token: "delimiter.thematic", foreground: "94a3b8" },
+      { token: "delimiter.admonition", foreground: "c084fc", fontStyle: "bold" },
+      { token: "keyword.admonition", foreground: "fdba74", fontStyle: "bold" },
+      { token: "string.admonition.title", foreground: "5eead4" },
+      { token: "meta.admonition.attributes", foreground: "94a3b8" },
       { token: "meta.code.info", foreground: "5eead4", fontStyle: "bold" },
       { token: "meta.code.attrs", foreground: "94a3b8" },
       { token: "markup.table", foreground: "93c5fd" },
