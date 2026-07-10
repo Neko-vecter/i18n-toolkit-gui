@@ -786,6 +786,80 @@ function BlockTable({
   );
 }
 
+function LanguageDropdown({
+  value,
+  languages,
+  onChange
+}: {
+  value: string;
+  languages: string[];
+  onChange: (language: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const options = languages.length ? languages : [value || "en"];
+  const activeValue = value || options[0] || "en";
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="language-select" ref={rootRef}>
+      <button
+        className="language-trigger"
+        type="button"
+        onClick={() => setOpen((visible) => !visible)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <Languages size={16} />
+        <span>{activeValue}</span>
+        <ChevronDown size={14} />
+      </button>
+      {open ? (
+        <div className="language-menu" role="listbox" aria-label="Working language">
+          {options.map((lang) => (
+            <button
+              type="button"
+              role="option"
+              aria-selected={lang === activeValue}
+              className={lang === activeValue ? "active" : ""}
+              key={lang}
+              onClick={() => {
+                onChange(lang);
+                setOpen(false);
+              }}
+            >
+              {lang}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function WindowFrame({
   platform,
   title,
@@ -1223,27 +1297,9 @@ function App() {
             {dirty ? <small>Unsaved</small> : null}
           </div>
           <div className="toolbar">
-            <label className="language-select">
-              <Languages size={16} />
-              <select value={language} onChange={(event) => setLanguage(event.target.value)}>
-                {(project.languages.length ? project.languages : [language || "en"]).map((lang) => (
-                  <option key={lang} value={lang}>
-                    {lang}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <LanguageDropdown value={language} languages={project.languages} onChange={setLanguage} />
             {selectedFile && documentView === "detail" ? (
               <>
-                <button
-                  className="toolbar-button"
-                  onClick={() => setDocumentView("list")}
-                  disabled={status.kind === "saving" || status.kind === "rebuilding"}
-                  title="Back to all keys"
-                >
-                  <ArrowLeft size={16} />
-                  All keys
-                </button>
                 <label className="jump-control" title="Jump to block">
                   <Hash size={15} />
                   <input
