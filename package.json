@@ -16,20 +16,20 @@
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "@monaco-editor/react": "^4.7.0",
-    "lucide-react": "^0.468.0",
+    "lucide-react": "^1.24.0",
     "monaco-editor": "^0.55.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
-    "@types/node": "^20.14.15",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
-    "electron": "^31.7.7",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "electron": "^43.1.0",
     "electron-builder": "^26.15.3",
-    "typescript": "^5.5.4",
-    "vite": "^5.4.2"
+    "typescript": "^7.0.2",
+    "vite": "^8.1.4"
   },
   "build": {
     "appId": "com.i18n-toolkit.app",
@@ -56,7 +56,8 @@
     "win": {
       "target": [
         "portable"
-      ]
+      ],
+      "signExecutable": false
     }
   }
 }
