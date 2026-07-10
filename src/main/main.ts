@@ -371,11 +371,11 @@ function toolkitPath() {
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
 }
 
-function bundledPythonPath() {
-  const executable = process.platform === "win32" ? "python.exe" : "python";
+function projectVenvPythonPath(projectRoot: string) {
+  const executable = process.platform === "win32" ? path.join("Scripts", "python.exe") : path.join("bin", "python");
   const candidates = [
-    path.join(process.resourcesPath, "python-runtime", executable),
-    path.join(process.cwd(), "build", "python-runtime", executable)
+    path.join(projectRoot, ".venv", executable),
+    path.join(projectRoot, "venv", executable)
   ];
   return candidates.find((candidate) => existsSync(candidate));
 }
@@ -396,7 +396,7 @@ function runProcess(command: string, args: string[], cwd: string, env?: NodeJS.P
   });
 }
 
-function bundledPythonScriptArgs(scriptPath: string, toolkitRoot: string, scriptArgs: string[]) {
+function pythonScriptArgs(scriptPath: string, toolkitRoot: string, scriptArgs: string[]) {
   const runner = [
     "import os, runpy, sys",
     "script = sys.argv[1]",
@@ -419,19 +419,20 @@ async function runPythonScript(
   const scriptPath = path.join(toolkitRoot, scriptName);
   const docPath = path.join("docs", relativePath);
   const scriptArgs = ["--input", docPath, "--lang", language];
-  const bundledPython = bundledPythonPath();
-  const candidates = bundledPython
-    ? [{ command: bundledPython, args: bundledPythonScriptArgs(scriptPath, toolkitRoot, scriptArgs) }]
-    :
-    process.platform === "win32"
+  const projectPython = projectVenvPythonPath(projectRoot);
+  const wrappedArgs = pythonScriptArgs(scriptPath, toolkitRoot, scriptArgs);
+  const candidates = [
+    ...(projectPython ? [{ command: projectPython, args: wrappedArgs }] : []),
+    ...(process.platform === "win32"
       ? [
-          { command: "py", args: ["-3", scriptPath, ...scriptArgs] },
-          { command: "python", args: [scriptPath, ...scriptArgs] }
+          { command: "py", args: ["-3", ...wrappedArgs] },
+          { command: "python", args: wrappedArgs }
         ]
       : [
-          { command: "python3", args: [scriptPath, ...scriptArgs] },
-          { command: "python", args: [scriptPath, ...scriptArgs] }
-        ];
+          { command: "python3", args: wrappedArgs },
+          { command: "python", args: wrappedArgs }
+        ])
+  ];
 
   let lastResult: RebuildResult = { ok: false, output: "" };
   for (const candidate of candidates) {

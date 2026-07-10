@@ -8,9 +8,8 @@
     "dev": "node scripts/dev.mjs",
     "build:electron": "node scripts/build-electron.mjs",
     "build": "yarn build:electron && node ./node_modules/vite/bin/vite.js build",
-    "prepare:python-runtime": "node scripts/prepare-python-runtime.mjs",
-    "dist": "yarn prepare:python-runtime && yarn build && electron-builder",
-    "dist:win": "yarn prepare:python-runtime && yarn build && electron-builder --win portable",
+    "dist": "yarn build && electron-builder",
+    "dist:win": "yarn build && electron-builder --win portable",
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit && node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json --noEmit",
     "preview": "node scripts/preview.mjs"
   },
@@ -51,13 +50,6 @@
           "**/*",
           "!**/__pycache__/**",
           "!**/*.pyc"
-        ]
-      },
-      {
-        "from": "build/python-runtime",
-        "to": "python-runtime",
-        "filter": [
-          "**/*"
         ]
       }
     ],
