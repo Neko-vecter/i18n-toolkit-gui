@@ -5,6 +5,7 @@ build
 .cache
 node_modules
 .electron-user-data
+src/renderer/generated-fonts
 
 yarn.lock
 __pycache__

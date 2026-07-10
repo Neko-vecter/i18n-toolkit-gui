@@ -1,3 +1,16 @@
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: url("./generated-fonts/HarmonyOS_Sans_SC_Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: url("./generated-fonts/HarmonyOS_Sans_SC_Bold.ttf") format("truetype");
+  font-weight: 700 900;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -84,7 +97,7 @@
 body {
   margin: 0;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    "HarmonyOS Sans SC", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--text);
   background: var(--bg);
 }
@@ -689,7 +702,7 @@ button {
   margin: 0;
   padding: 12px 14px;
   overflow: auto;
-  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: inherit;
   font-size: 12px;
   line-height: 1.55;
   white-space: pre-wrap;
@@ -815,7 +828,7 @@ button {
 
 .block-table-row .key-cell {
   color: var(--muted);
-  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: inherit;
   font-size: 11px;
   padding: 0 8px;
 }
@@ -995,7 +1008,7 @@ button {
 
 .picker-hint code {
   color: #33424d;
-  font-family: "Cascadia Code", Consolas, monospace;
+  font-family: inherit;
   font-weight: 800;
 }
 
@@ -1328,7 +1341,7 @@ button {
   border-radius: var(--corner-xs);
   color: var(--muted-strong);
   background: var(--surface-muted);
-  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-family: inherit;
   font-size: 12px;
   white-space: nowrap;
 }
