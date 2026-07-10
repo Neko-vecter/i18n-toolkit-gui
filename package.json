@@ -9,7 +9,7 @@
     "build:electron": "node scripts/build-electron.mjs",
     "build": "yarn build:electron && node ./node_modules/vite/bin/vite.js build",
     "dist": "yarn build && electron-builder",
-    "dist:win": "yarn build && electron-builder --win portable",
+    "dist:win": "yarn build && electron-builder --win dir",
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit && node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json --noEmit",
     "preview": "node scripts/preview.mjs"
   },
