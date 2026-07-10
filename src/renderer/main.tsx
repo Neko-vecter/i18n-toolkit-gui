@@ -419,7 +419,115 @@ function SyncedMdxEditors({
   const originEditor = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const translateEditor = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const originCursorLineDecorations = useRef<string[]>([]);
+  const originAlignmentZones = useRef<string[]>([]);
+  const translateAlignmentZones = useRef<string[]>([]);
+  const alignmentFrame = useRef<number | null>(null);
+  const alignmentUpdating = useRef(false);
+  const settingsRef = useRef(settings);
   const syncing = useRef(false);
+
+  settingsRef.current = settings;
+
+  const clearAlignmentZones = (
+    editor: Monaco.editor.IStandaloneCodeEditor | null,
+    zones: React.MutableRefObject<string[]>
+  ) => {
+    if (!editor || zones.current.length === 0) {
+      return;
+    }
+
+    editor.changeViewZones((accessor) => {
+      zones.current.forEach((zoneId) => accessor.removeZone(zoneId));
+    });
+    zones.current = [];
+  };
+
+  const alignWrappedLines = () => {
+    const source = originEditor.current;
+    const target = translateEditor.current;
+    if (!source || !target) {
+      return;
+    }
+
+    alignmentUpdating.current = true;
+    clearAlignmentZones(source, originAlignmentZones);
+    clearAlignmentZones(target, translateAlignmentZones);
+
+    window.requestAnimationFrame(() => {
+      const sourceModel = source.getModel();
+      const targetModel = target.getModel();
+      if (!sourceModel || !targetModel || !settingsRef.current.wordWrap) {
+        alignmentUpdating.current = false;
+        return;
+      }
+
+      const sharedLineCount = Math.min(sourceModel.getLineCount(), targetModel.getLineCount());
+      const sourceZones: Array<{ lineNumber: number; height: number }> = [];
+      const targetZones: Array<{ lineNumber: number; height: number }> = [];
+
+      for (let lineNumber = 1; lineNumber < sharedLineCount; lineNumber += 1) {
+        const sourceHeight = source.getTopForLineNumber(lineNumber + 1) - source.getTopForLineNumber(lineNumber);
+        const targetHeight = target.getTopForLineNumber(lineNumber + 1) - target.getTopForLineNumber(lineNumber);
+        const heightDifference = sourceHeight - targetHeight;
+
+        if (heightDifference > 0) {
+          targetZones.push({ lineNumber, height: heightDifference });
+        } else if (heightDifference < 0) {
+          sourceZones.push({ lineNumber, height: -heightDifference });
+        }
+      }
+
+      const addAlignmentZones = (
+        editor: Monaco.editor.IStandaloneCodeEditor,
+        zones: React.MutableRefObject<string[]>,
+        additions: Array<{ lineNumber: number; height: number }>
+      ) => {
+        editor.changeViewZones((accessor) => {
+          zones.current = additions.map(({ lineNumber, height }) => {
+            const spacer = document.createElement("div");
+            spacer.className = "line-alignment-spacer";
+            return accessor.addZone({
+              afterLineNumber: lineNumber,
+              heightInPx: height,
+              domNode: spacer,
+              suppressMouseDown: true
+            });
+          });
+        });
+      };
+
+      addAlignmentZones(source, originAlignmentZones, sourceZones);
+      addAlignmentZones(target, translateAlignmentZones, targetZones);
+      window.requestAnimationFrame(() => {
+        alignmentUpdating.current = false;
+      });
+    });
+  };
+
+  const scheduleLineAlignment = () => {
+    if (alignmentUpdating.current) {
+      return;
+    }
+    if (alignmentFrame.current !== null) {
+      window.cancelAnimationFrame(alignmentFrame.current);
+    }
+    alignmentFrame.current = window.requestAnimationFrame(() => {
+      alignmentFrame.current = null;
+      alignWrappedLines();
+    });
+  };
+
+  useEffect(() => {
+    scheduleLineAlignment();
+  }, [origin, translate, settings.wordWrap, settings.editorFontSize, settings.editorLineHeight]);
+
+  useEffect(() => {
+    return () => {
+      if (alignmentFrame.current !== null) {
+        window.cancelAnimationFrame(alignmentFrame.current);
+      }
+    };
+  }, []);
 
   const syncScroll = (
     source: Monaco.editor.IStandaloneCodeEditor,
@@ -443,6 +551,9 @@ function SyncedMdxEditors({
         syncScroll(editor, translateEditor.current);
       }
     });
+    editor.onDidChangeModelContent(scheduleLineAlignment);
+    editor.onDidLayoutChange(scheduleLineAlignment);
+    scheduleLineAlignment();
   };
 
   const mountTranslate: OnMount = (editor, monacoInstance) => {
@@ -452,6 +563,8 @@ function SyncedMdxEditors({
         syncScroll(editor, originEditor.current);
       }
     });
+    editor.onDidChangeModelContent(scheduleLineAlignment);
+    editor.onDidLayoutChange(scheduleLineAlignment);
     editor.onDidChangeCursorPosition((event) => {
       const target = originEditor.current;
       const model = target?.getModel();
@@ -471,6 +584,7 @@ function SyncedMdxEditors({
         }
       ]);
     });
+    scheduleLineAlignment();
   };
 
   return (
