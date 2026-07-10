@@ -461,17 +461,9 @@ function SyncedMdxEditors({
   const alignmentFrame = useRef<number | null>(null);
   const alignmentUpdating = useRef(false);
   const settingsRef = useRef(settings);
-  const originRef = useRef(origin);
-  const acceptedTranslation = useRef(translate);
-  const restoringTranslation = useRef(false);
   const syncing = useRef(false);
 
   settingsRef.current = settings;
-  originRef.current = origin;
-
-  useEffect(() => {
-    acceptedTranslation.current = translate;
-  }, [translate]);
 
   const clearAlignmentZones = (
     editor: Monaco.editor.IStandaloneCodeEditor | null,
@@ -616,15 +608,6 @@ function SyncedMdxEditors({
     });
     editor.onDidChangeModelContent(scheduleLineAlignment);
     editor.onDidLayoutChange(scheduleLineAlignment);
-    editor.onKeyDown((event) => {
-      if (
-        event.keyCode === monacoInstance.KeyCode.Enter &&
-        hasMatchingLineCount(originRef.current, acceptedTranslation.current)
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    });
     editor.onDidChangeCursorPosition((event) => {
       const target = originEditor.current;
       const model = target?.getModel();
@@ -671,23 +654,7 @@ function SyncedMdxEditors({
           value={translate}
           options={{ ...editorOptions(settings), readOnly: disabled }}
           onMount={mountTranslate}
-          onChange={(value) => {
-            const nextValue = value ?? "";
-            if (restoringTranslation.current) {
-              return;
-            }
-            if (
-              hasMatchingLineCount(origin, acceptedTranslation.current) &&
-              !hasMatchingLineCount(origin, nextValue)
-            ) {
-              restoringTranslation.current = true;
-              translateEditor.current?.setValue(acceptedTranslation.current);
-              restoringTranslation.current = false;
-              return;
-            }
-            acceptedTranslation.current = nextValue;
-            onChange(nextValue);
-          }}
+          onChange={(value) => onChange(value ?? "")}
         />
       </div>
     </>
