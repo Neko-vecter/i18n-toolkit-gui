@@ -78,6 +78,14 @@ function normalizeTomlText(value: string) {
   return value.startsWith("\n") ? value.slice(1) : value;
 }
 
+function lineCount(value: string) {
+  return value.split(/\r\n|\r|\n/).length;
+}
+
+function hasMatchingLineCount(origin: string, translate: string) {
+  return lineCount(normalizeTomlText(origin)) === lineCount(normalizeTomlText(translate));
+}
+
 function toTomlText(value: string, original: string) {
   return original.startsWith("\n") ? `\n${value}` : value;
 }
@@ -424,9 +432,17 @@ function SyncedMdxEditors({
   const alignmentFrame = useRef<number | null>(null);
   const alignmentUpdating = useRef(false);
   const settingsRef = useRef(settings);
+  const originRef = useRef(origin);
+  const acceptedTranslation = useRef(translate);
+  const restoringTranslation = useRef(false);
   const syncing = useRef(false);
 
   settingsRef.current = settings;
+  originRef.current = origin;
+
+  useEffect(() => {
+    acceptedTranslation.current = translate;
+  }, [translate]);
 
   const clearAlignmentZones = (
     editor: Monaco.editor.IStandaloneCodeEditor | null,
@@ -565,6 +581,15 @@ function SyncedMdxEditors({
     });
     editor.onDidChangeModelContent(scheduleLineAlignment);
     editor.onDidLayoutChange(scheduleLineAlignment);
+    editor.onKeyDown((event) => {
+      if (
+        event.keyCode === monacoInstance.KeyCode.Enter &&
+        hasMatchingLineCount(originRef.current, acceptedTranslation.current)
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
     editor.onDidChangeCursorPosition((event) => {
       const target = originEditor.current;
       const model = target?.getModel();
@@ -611,7 +636,23 @@ function SyncedMdxEditors({
           value={translate}
           options={{ ...editorOptions(settings), readOnly: disabled }}
           onMount={mountTranslate}
-          onChange={(value) => onChange(value ?? "")}
+          onChange={(value) => {
+            const nextValue = value ?? "";
+            if (restoringTranslation.current) {
+              return;
+            }
+            if (
+              hasMatchingLineCount(origin, acceptedTranslation.current) &&
+              !hasMatchingLineCount(origin, nextValue)
+            ) {
+              restoringTranslation.current = true;
+              translateEditor.current?.setValue(acceptedTranslation.current);
+              restoringTranslation.current = false;
+              return;
+            }
+            acceptedTranslation.current = nextValue;
+            onChange(nextValue);
+          }}
         />
       </div>
     </>
@@ -1189,6 +1230,16 @@ function App() {
     if (!project || !selectedFile || !document) {
       return;
     }
+    const mismatchedBlockIndex = blocks.findIndex((block) => !hasMatchingLineCount(block.origin, block.translate));
+    if (mismatchedBlockIndex !== -1) {
+      setCurrentBlockIndex(mismatchedBlockIndex);
+      setDocumentView("detail");
+      setStatus({
+        kind: "error",
+        message: `Block ${mismatchedBlockIndex + 1}: translation line count must match the original before saving.`
+      });
+      return;
+    }
     setStatus({ kind: "saving", message: "Saving translations" });
     try {
       const saved = (await window.i18nToolkit.saveTranslations({
@@ -1212,6 +1263,16 @@ function App() {
 
   async function rebuild() {
     if (!project || !selectedFile || project.mode === "separated-toml") {
+      return;
+    }
+    const mismatchedBlockIndex = blocks.findIndex((block) => !hasMatchingLineCount(block.origin, block.translate));
+    if (mismatchedBlockIndex !== -1) {
+      setCurrentBlockIndex(mismatchedBlockIndex);
+      setDocumentView("detail");
+      setStatus({
+        kind: "error",
+        message: `Block ${mismatchedBlockIndex + 1}: translation line count must match the original before rebuilding.`
+      });
       return;
     }
     setStatus({ kind: "rebuilding", message: "Rebuilding current file" });
