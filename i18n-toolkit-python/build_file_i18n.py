@@ -21,7 +21,8 @@ def main():
     )
     parser.add_argument(
         "--lang",
-        default="en",
+        nargs="+",
+        default=["en"],
         help="Target language to rebuild"
     )
     args = parser.parse_args()
@@ -31,7 +32,7 @@ def main():
     I18N_FOLDER = Path("i18n")
     # build_middleware_base = Path("i18n_middleware")
     build_middleware_base = Path("i18n")
-    lang_list = [args.lang]
+    lang_list = args.lang
 
     md_files = []
 

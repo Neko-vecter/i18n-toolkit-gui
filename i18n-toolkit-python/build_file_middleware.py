@@ -23,7 +23,8 @@ def main():
     )
     parser.add_argument(
         "--lang",
-        default="en",
+        nargs="+",
+        default=["en"],
         help="Target language to build"
     )
 
@@ -45,7 +46,7 @@ def main():
     # build_middleware_base = "i18n_middleware"
     build_middleware_base = "i18n"
     build_cache_base = ".build_cache"
-    lang_list = [args.lang]
+    lang_list = args.lang
 
     logger.info("Starting build process...")
 
