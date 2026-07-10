@@ -484,6 +484,9 @@ async function createWindow() {
     minHeight: 720,
     title: "i18n Toolkit",
     backgroundColor: "#f6f3ee",
+    frame: process.platform === "darwin",
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
+    trafficLightPosition: { x: 14, y: 13 },
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.cjs"),
       contextIsolation: true,
@@ -544,6 +547,23 @@ app.whenReady().then(async () => {
     saveTranslations(payload)
   );
   ipcMain.handle("document:rebuild", (_event, payload: RebuildPayload) => rebuildDocument(payload));
+  ipcMain.handle("window:minimize", (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize();
+  });
+  ipcMain.handle("window:maximize", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) {
+      return;
+    }
+    if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+  });
+  ipcMain.handle("window:close", (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close();
+  });
 
   await createWindow();
   Menu.setApplicationMenu(

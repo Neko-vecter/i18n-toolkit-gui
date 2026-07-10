@@ -12,6 +12,7 @@ import {
   Hash,
   Languages,
   Loader2,
+  Minus,
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
@@ -19,6 +20,8 @@ import {
   Save,
   Search,
   Settings,
+  Square,
+  X,
   Upload
 } from "lucide-react";
 import type { DocFile, LoadedDocument, ProjectState, RebuildResult, TranslationBlock } from "../shared/types";
@@ -761,6 +764,62 @@ function BlockTable({
   );
 }
 
+function WindowFrame({
+  platform,
+  title,
+  subtitle,
+  onChooseProject,
+  onOpenConfig,
+  children
+}: {
+  platform: string;
+  title: string;
+  subtitle?: string;
+  onChooseProject: () => void;
+  onOpenConfig: () => void;
+  children: React.ReactNode;
+}) {
+  const isMac = platform === "darwin";
+
+  return (
+    <div className={`window-shell ${isMac ? "platform-mac" : "platform-frameless"}`}>
+      <header className="window-titlebar">
+        <div className="window-title">
+          <span>{title}</span>
+          {subtitle ? <small>{subtitle}</small> : null}
+        </div>
+        <div className="titlebar-actions">
+          <button className="titlebar-tool" type="button" onClick={onChooseProject} title="Open project">
+            <Upload size={14} />
+          </button>
+          <button className="titlebar-tool" type="button" onClick={onOpenConfig} title="Config">
+            <Settings size={14} />
+          </button>
+          {!isMac ? (
+            <div className="window-controls" aria-label="Window controls">
+              <button type="button" onClick={() => void window.i18nToolkit.windowMinimize()} title="Minimize">
+                <Minus size={15} />
+              </button>
+              <button type="button" onClick={() => void window.i18nToolkit.windowMaximize()} title="Maximize">
+                <Square size={12} />
+              </button>
+              <button
+                className="close"
+                type="button"
+                onClick={() => void window.i18nToolkit.windowClose()}
+                title="Close"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </header>
+      {children}
+    </div>
+  );
+}
+
 function App() {
   if (!window.i18nToolkit) {
     return (
@@ -796,6 +855,7 @@ function App() {
   const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() =>
     window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
   );
+  const platform = window.i18nToolkit.platform;
 
   const filteredDocs = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -1058,17 +1118,37 @@ function App() {
 
   if (!project) {
     return (
-      <ProjectPicker
-        onChoose={chooseProject}
-        onOpenLast={openLastProject}
-        lastProjectPath={lastProjectPath}
-        status={status}
-      />
+      <WindowFrame
+        platform={platform}
+        title="i18n Toolkit"
+        onChooseProject={chooseProject}
+        onOpenConfig={() => setControlPanelOpen(true)}
+      >
+        <ProjectPicker
+          onChoose={chooseProject}
+          onOpenLast={openLastProject}
+          lastProjectPath={lastProjectPath}
+          status={status}
+        />
+        <ControlPanel
+          open={controlPanelOpen}
+          settings={settings}
+          onChange={updateSettings}
+          onClose={() => setControlPanelOpen(false)}
+        />
+      </WindowFrame>
     );
   }
 
   return (
-    <div className="app-shell">
+    <WindowFrame
+      platform={platform}
+      title={folderNameFromPath(project.rootPath)}
+      subtitle={project.mode === "separated-toml" ? "Separated TOML" : "Docusaurus"}
+      onChooseProject={chooseProject}
+      onOpenConfig={() => setControlPanelOpen(true)}
+    >
+      <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-top">
           <div>
@@ -1281,7 +1361,8 @@ function App() {
         onChange={updateSettings}
         onClose={() => setControlPanelOpen(false)}
       />
-    </div>
+      </div>
+    </WindowFrame>
   );
 }
 

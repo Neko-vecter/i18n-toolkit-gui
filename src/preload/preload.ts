@@ -6,6 +6,10 @@ const api = {
   getLastProjectPath: () => ipcRenderer.invoke("project:getLastPath"),
   chooseProject: () => ipcRenderer.invoke("project:choose"),
   openProject: (rootPath: string) => ipcRenderer.invoke("project:open", rootPath),
+  platform: process.platform,
+  windowMinimize: () => ipcRenderer.invoke("window:minimize"),
+  windowMaximize: () => ipcRenderer.invoke("window:maximize"),
+  windowClose: () => ipcRenderer.invoke("window:close"),
   scanFiles: (projectRoot: string, mode: ProjectMode, language: string) =>
     ipcRenderer.invoke("project:scanFiles", { projectRoot, mode, language }),
   loadDocument: (projectRoot: string, mode: ProjectMode, language: string, relativePath: string) =>
