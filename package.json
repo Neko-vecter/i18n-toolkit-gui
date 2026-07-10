@@ -33,7 +33,7 @@
   },
   "build": {
     "appId": "com.i18n-toolkit.app",
-    "productName": "i18n Toolkit",
+    "productName": "i18n-toolkit",
     "directories": {
       "output": "release"
     },
