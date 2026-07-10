@@ -372,6 +372,7 @@ button {
   font-size: 13px;
   line-height: 24px;
   text-align: left;
+  cursor: pointer;
 }
 
 .folder-row {
