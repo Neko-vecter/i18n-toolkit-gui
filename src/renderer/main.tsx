@@ -50,6 +50,7 @@ interface AppSettings {
   themeMode: ThemeMode;
   editorFontSize: number;
   editorLineHeight: number;
+  tabSize: number;
   wordWrap: boolean;
   syncScroll: boolean;
   minimap: boolean;
@@ -59,6 +60,7 @@ const defaultSettings: AppSettings = {
   themeMode: "system",
   editorFontSize: 13,
   editorLineHeight: 21,
+  tabSize: 4,
   wordWrap: true,
   syncScroll: true,
   minimap: false
@@ -132,7 +134,9 @@ function editorOptions(settings: AppSettings): Monaco.editor.IStandaloneEditorCo
     horizontalScrollbarSize: 10,
     verticalScrollbarSize: 10
   },
-  tabSize: 2,
+  detectIndentation: false,
+  insertSpaces: true,
+  tabSize: settings.tabSize,
   wordWrap: settings.wordWrap ? "on" : "off",
   wrappingIndent: "same"
   };
@@ -531,77 +535,95 @@ function ControlPanel({
         </button>
       </header>
 
-      <section className="setting-group">
-        <label>Theme</label>
-        <div className="segmented">
-          {(["light", "dark", "system"] as ThemeMode[]).map((mode) => (
-            <button
-              key={mode}
-              className={settings.themeMode === mode ? "active" : ""}
-              onClick={() => update("themeMode", mode)}
-            >
-              {mode}
-            </button>
-          ))}
-        </div>
-      </section>
+      <div className="control-content">
+        <section className="setting-group">
+          <label>Theme</label>
+          <div className="segmented">
+            {(["light", "dark", "system"] as ThemeMode[]).map((mode) => (
+              <button
+                key={mode}
+                className={settings.themeMode === mode ? "active" : ""}
+                onClick={() => update("themeMode", mode)}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </section>
 
-      <section className="setting-group">
-        <label htmlFor="font-size">Font size</label>
-        <div className="range-row">
-          <input
-            id="font-size"
-            type="range"
-            min="11"
-            max="18"
-            value={settings.editorFontSize}
-            onChange={(event) => update("editorFontSize", Number(event.target.value))}
-          />
-          <span>{settings.editorFontSize}px</span>
-        </div>
-      </section>
+        <section className="setting-group">
+          <label htmlFor="font-size">Font size</label>
+          <div className="range-row">
+            <input
+              id="font-size"
+              type="range"
+              min="11"
+              max="18"
+              value={settings.editorFontSize}
+              onChange={(event) => update("editorFontSize", Number(event.target.value))}
+            />
+            <span>{settings.editorFontSize}px</span>
+          </div>
+        </section>
 
-      <section className="setting-group">
-        <label htmlFor="line-height">Line height</label>
-        <div className="range-row">
-          <input
-            id="line-height"
-            type="range"
-            min="17"
-            max="30"
-            value={settings.editorLineHeight}
-            onChange={(event) => update("editorLineHeight", Number(event.target.value))}
-          />
-          <span>{settings.editorLineHeight}px</span>
-        </div>
-      </section>
+        <section className="setting-group">
+          <label htmlFor="line-height">Line height</label>
+          <div className="range-row">
+            <input
+              id="line-height"
+              type="range"
+              min="17"
+              max="30"
+              value={settings.editorLineHeight}
+              onChange={(event) => update("editorLineHeight", Number(event.target.value))}
+            />
+            <span>{settings.editorLineHeight}px</span>
+          </div>
+        </section>
 
-      <section className="setting-group toggles">
-        <label>
-          <input
-            type="checkbox"
-            checked={settings.wordWrap}
-            onChange={(event) => update("wordWrap", event.target.checked)}
-          />
-          Word wrap
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={settings.syncScroll}
-            onChange={(event) => update("syncScroll", event.target.checked)}
-          />
-          Sync vertical scroll
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={settings.minimap}
-            onChange={(event) => update("minimap", event.target.checked)}
-          />
-          Minimap
-        </label>
-      </section>
+        <section className="setting-group">
+          <label htmlFor="tab-size">Tab size</label>
+          <div className="range-row">
+            <input
+              id="tab-size"
+              type="range"
+              min="2"
+              max="8"
+              step="1"
+              value={settings.tabSize}
+              onChange={(event) => update("tabSize", Number(event.target.value))}
+            />
+            <span>{settings.tabSize} sp</span>
+          </div>
+        </section>
+
+        <section className="setting-group toggles">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.wordWrap}
+              onChange={(event) => update("wordWrap", event.target.checked)}
+            />
+            Word wrap
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.syncScroll}
+              onChange={(event) => update("syncScroll", event.target.checked)}
+            />
+            Sync vertical scroll
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.minimap}
+              onChange={(event) => update("minimap", event.target.checked)}
+            />
+            Minimap
+          </label>
+        </section>
+      </div>
     </aside>
   );
 }
