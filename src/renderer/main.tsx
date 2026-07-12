@@ -1037,12 +1037,28 @@ function ProjectMenu({
     onCloseProject: () => void;
 }) {
     const [open, setOpen] = useState(false);
+    const rootRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         if (!open) return;
-        const close = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
-        window.addEventListener("keydown", close);
-        return () => window.removeEventListener("keydown", close);
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (!rootRef.current?.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setOpen(false);
+            }
+        };
+
+        window.addEventListener("pointerdown", handlePointerDown);
+        window.addEventListener("keydown", handleKeyDown);
+        return () => {
+            window.removeEventListener("pointerdown", handlePointerDown);
+            window.removeEventListener("keydown", handleKeyDown);
+        };
     }, [open]);
 
     const chooseProject = () => {
@@ -1051,7 +1067,7 @@ function ProjectMenu({
     };
 
     return (
-        <div className="project-menu-wrap">
+        <div className="project-menu-wrap" ref={rootRef}>
             <button
                 className="project-menu-trigger"
                 type="button"
