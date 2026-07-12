@@ -152,6 +152,7 @@ button {
 
 .window-titlebar {
     -webkit-app-region: drag;
+    position: relative;
     display: grid;
     min-width: 0;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -171,11 +172,87 @@ button {
 }
 
 .window-title {
+    position: absolute;
+    left: 50%;
+    max-width: calc(100vw - 240px);
+    transform: translateX(-50%);
     display: flex;
     min-width: 0;
     align-items: baseline;
     gap: 8px;
 }
+
+.titlebar-left {
+    -webkit-app-region: drag;
+    display: flex;
+    min-width: 0;
+    height: 100%;
+    align-items: center;
+}
+
+.project-menu-wrap {
+    -webkit-app-region: no-drag;
+    position: relative;
+}
+
+.project-menu-trigger {
+    height: 24px;
+    padding: 0 10px;
+    border-radius: var(--corner-xs);
+    corner-shape: var(--corner-curve);
+    color: var(--muted-strong);
+    background: transparent;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.project-menu-trigger:hover,
+.project-menu-trigger[aria-expanded="true"] {
+    color: var(--accent-strong);
+    background: var(--accent-soft);
+}
+
+.project-menu {
+    position: absolute;
+    z-index: 60;
+    top: calc(100% + 2px);
+    left: 0;
+    display: grid;
+    min-width: 220px;
+    max-width: min(360px, calc(100vw - 20px));
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--corner-md);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+    background: var(--surface);
+}
+
+.project-menu button,
+.project-menu-label,
+.project-menu-empty {
+    min-width: 0;
+    padding: 8px 10px;
+    color: var(--text);
+    font-size: 12px;
+    text-align: left;
+}
+
+.project-menu button {
+    overflow: hidden;
+    border-radius: var(--corner-sm);
+    background: transparent;
+    cursor: pointer;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.project-menu button:hover { background: var(--accent-soft); color: var(--accent-strong); }
+.project-menu button:disabled { color: var(--muted); cursor: default; }
+.project-menu button:disabled:hover { background: transparent; }
+.project-menu-label { padding-bottom: 4px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.project-menu-empty { color: var(--muted); }
+.project-menu-divider { height: 1px; margin: 5px 4px; background: var(--border-soft); }
 
 .window-title span,
 .window-title small {
@@ -311,9 +388,7 @@ button {
 }
 
 .icon-button,
-.toolbar-button,
-.primary-button,
-.secondary-button {
+.toolbar-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -976,26 +1051,6 @@ button {
     letter-spacing: 0;
 }
 
-.primary-button {
-    height: 42px;
-    padding: 0 16px;
-    color: #fff;
-    background: #2f5f7b;
-    font-weight: 800;
-}
-
-.secondary-button {
-    max-width: 100%;
-    height: 38px;
-    padding: 0 14px;
-    overflow: hidden;
-    color: #2f5f7b;
-    background: #e8f2f5;
-    font-weight: 800;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .picker-hint {
     color: #63707d;
     font-size: 13px;
@@ -1080,13 +1135,11 @@ button {
 
 .project-warning,
 .icon-button,
-.secondary-button,
 .log-toggle {
     color: var(--accent-strong);
     background: var(--accent-soft);
 }
 
-.primary-button,
 .toolbar-button.strong {
     color: #fff;
     background: var(--accent);

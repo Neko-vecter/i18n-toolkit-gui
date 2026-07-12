@@ -27,6 +27,7 @@ if (process.env.I18N_TOOLKIT_DEV_USER_DATA) {
 
 interface StoredConfig {
   lastProjectRoot?: string;
+  recentProjectRoots?: string[];
 }
 
 interface TomlDocument {
@@ -264,7 +265,11 @@ async function openProject(projectRoot: string): Promise<ProjectState> {
     validation
   };
 
-  await writeConfig({ lastProjectRoot: projectRoot });
+  const config = await readConfig();
+  const recentProjectRoots = [projectRoot, ...(config.recentProjectRoots ?? [])]
+    .filter((root, index, roots) => root && roots.indexOf(root) === index)
+    .slice(0, 10);
+  await writeConfig({ lastProjectRoot: projectRoot, recentProjectRoots });
   return state;
 }
 
@@ -536,6 +541,15 @@ app.whenReady().then(async () => {
     return config.lastProjectRoot;
   });
 
+  ipcMain.handle("project:getRecentPaths", async () => {
+    const config = await readConfig();
+    const roots = config.recentProjectRoots ?? (config.lastProjectRoot ? [config.lastProjectRoot] : []);
+    const available = await Promise.all(
+      roots.map(async (root) => ((await exists(root)) && (await detectProjectMode(root)) ? root : null))
+    );
+    return available.filter((root): root is string => root !== null);
+  });
+
   ipcMain.handle("project:choose", async (event) => {
     const config = await readConfig();
     const parent = BrowserWindow.fromWebContents(event.sender);
@@ -552,6 +566,10 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle("project:open", (_event, rootPath: string) => openProject(rootPath));
+  ipcMain.handle("project:close", async () => {
+    const config = await readConfig();
+    await writeConfig({ ...config, lastProjectRoot: undefined });
+  });
   ipcMain.handle("project:scanFiles", (_event, payload) =>
     payload.mode === "separated-toml"
       ? scanSeparatedTomlFiles(payload.projectRoot, payload.language)

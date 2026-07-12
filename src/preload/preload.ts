@@ -4,8 +4,10 @@ import type { ProjectMode, RebuildPayload, SaveTranslationsPayload } from "../sh
 const api = {
   getInitialProject: () => ipcRenderer.invoke("project:getInitial"),
   getLastProjectPath: () => ipcRenderer.invoke("project:getLastPath"),
+  getRecentProjectPaths: () => ipcRenderer.invoke("project:getRecentPaths"),
   chooseProject: () => ipcRenderer.invoke("project:choose"),
   openProject: (rootPath: string) => ipcRenderer.invoke("project:open", rootPath),
+  closeProject: () => ipcRenderer.invoke("project:close"),
   platform: process.platform,
   windowMinimize: () => ipcRenderer.invoke("window:minimize"),
   windowMaximize: () => ipcRenderer.invoke("window:maximize"),

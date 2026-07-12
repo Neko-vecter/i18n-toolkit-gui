@@ -32,6 +32,7 @@ import type {
     TranslationBlock,
 } from "../shared/types";
 import { ControlPanel, type AppSettings } from "../components/setting";
+import { ProjectPicker } from "../components/project-picker";
 import "./styles.css";
 
 type StatusKind =
@@ -882,49 +883,6 @@ function FileTree({
     return <div className="file-tree">{renderNode(tree)}</div>;
 }
 
-function ProjectPicker({
-    onChoose,
-    onOpenLast,
-    lastProjectPath,
-    status,
-}: {
-    onChoose: () => void;
-    onOpenLast: () => void;
-    lastProjectPath: string | null;
-    status: StatusState;
-}) {
-    return (
-        <main className="picker">
-            <section className="picker-panel">
-                <div className="mark">
-                    <Languages size={32} />
-                </div>
-                <h1>i18n Toolkit</h1>
-                <button className="primary-button" onClick={onChoose}>
-                    <Upload size={18} />
-                    Choose project
-                </button>
-                {lastProjectPath ? (
-                    <button
-                        className="secondary-button"
-                        onClick={onOpenLast}
-                        title={lastProjectPath}
-                    >
-                        Open recent project
-                    </button>
-                ) : null}
-                <div className="picker-hint">
-                    Select a Docusaurus project with <code>docs/</code> or a
-                    separated TOML project with <code>i18n-project.toml</code>.
-                </div>
-                {status.kind === "error" ? (
-                    <p className="error-text">{status.message}</p>
-                ) : null}
-            </section>
-        </main>
-    );
-}
-
 function BlockTable({
     blocks,
     onOpenBlock,
@@ -1065,11 +1023,90 @@ function LanguageDropdown({
     );
 }
 
+function ProjectMenu({
+    recentProjects,
+    hasProject,
+    onChooseProject,
+    onOpenRecent,
+    onCloseProject,
+}: {
+    recentProjects: string[];
+    hasProject: boolean;
+    onChooseProject: () => void;
+    onOpenRecent: (projectPath: string) => void;
+    onCloseProject: () => void;
+}) {
+    const [open, setOpen] = useState(false);
+
+    useEffect(() => {
+        if (!open) return;
+        const close = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
+        window.addEventListener("keydown", close);
+        return () => window.removeEventListener("keydown", close);
+    }, [open]);
+
+    const chooseProject = () => {
+        setOpen(false);
+        onChooseProject();
+    };
+
+    return (
+        <div className="project-menu-wrap">
+            <button
+                className="project-menu-trigger"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={open}
+                onClick={() => setOpen((visible) => !visible)}
+            >
+                Project
+            </button>
+            {open ? (
+                <div className="project-menu" role="menu" aria-label="Project">
+                    <button type="button" role="menuitem" onClick={chooseProject}>
+                        Open Project...
+                    </button>
+                    <div className="project-menu-label">Recent Projects</div>
+                    {recentProjects.length ? (
+                        recentProjects.map((projectPath) => (
+                            <button
+                                key={projectPath}
+                                type="button"
+                                role="menuitem"
+                                title={projectPath}
+                                onClick={() => {
+                                    setOpen(false);
+                                    onOpenRecent(projectPath);
+                                }}
+                            >
+                                {folderNameFromPath(projectPath)}
+                            </button>
+                        ))
+                    ) : (
+                        <div className="project-menu-empty">No recent projects</div>
+                    )}
+                    <div className="project-menu-divider" />
+                    <button type="button" role="menuitem" disabled={!hasProject} onClick={() => {
+                        setOpen(false);
+                        onCloseProject();
+                    }}>
+                        Close Project
+                    </button>
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
 function WindowFrame({
     platform,
     title,
     subtitle,
     onChooseProject,
+    onOpenRecent,
+    onCloseProject,
+    recentProjects,
+    hasProject,
     onOpenConfig,
     children,
 }: {
@@ -1077,6 +1114,10 @@ function WindowFrame({
     title: string;
     subtitle?: string;
     onChooseProject: () => void;
+    onOpenRecent: (projectPath: string) => void;
+    onCloseProject: () => void;
+    recentProjects: string[];
+    hasProject: boolean;
     onOpenConfig: () => void;
     children: React.ReactNode;
 }) {
@@ -1087,9 +1128,18 @@ function WindowFrame({
             className={`window-shell ${isMac ? "platform-mac" : "platform-frameless"}`}
         >
             <header className="window-titlebar">
-                <div className="window-title">
-                    <span>{title}</span>
-                    {subtitle ? <small>{subtitle}</small> : null}
+                <div className="titlebar-left">
+                    <ProjectMenu
+                        recentProjects={recentProjects}
+                        hasProject={hasProject}
+                        onChooseProject={onChooseProject}
+                        onOpenRecent={onOpenRecent}
+                        onCloseProject={onCloseProject}
+                    />
+                    <div className="window-title">
+                        <span>{title}</span>
+                        {subtitle ? <small>{subtitle}</small> : null}
+                    </div>
                 </div>
                 <div className="titlebar-actions">
                     <button
@@ -1177,7 +1227,7 @@ function App() {
     const [documentView, setDocumentView] = useState<DocumentView>("list");
     const [dirty, setDirty] = useState(false);
     const [filter, setFilter] = useState("");
-    const [lastProjectPath, setLastProjectPath] = useState<string | null>(null);
+    const [recentProjects, setRecentProjects] = useState<string[]>([]);
     const [status, setStatus] = useState<StatusState>(emptyStatus);
     const [lastLog, setLastLog] = useState("");
     const [showLog, setShowLog] = useState(false);
@@ -1257,6 +1307,7 @@ function App() {
         clearDocumentState();
         setLastLog("");
         setShowLog(false);
+        setRecentProjects((projects) => [next.rootPath, ...projects.filter((path) => path !== next.rootPath)].slice(0, 10));
     }
 
     async function chooseProject() {
@@ -1278,14 +1329,11 @@ function App() {
         }
     }
 
-    async function openLastProject() {
-        if (!lastProjectPath) {
-            return;
-        }
+    async function openRecentProject(projectPath: string) {
         setStatus({ kind: "loading", message: "Opening recent project" });
         try {
             const next = (await window.i18nToolkit.openProject(
-                lastProjectPath,
+                projectPath,
             )) as ProjectState;
             applyProject(next);
             setStatus({ kind: "success", message: "Project loaded" });
@@ -1295,6 +1343,19 @@ function App() {
                 message: error instanceof Error ? error.message : String(error),
             });
         }
+    }
+
+    function closeProject() {
+        if ("closeProject" in window.i18nToolkit) {
+            void window.i18nToolkit.closeProject();
+        }
+        setProject(null);
+        clearDocumentState();
+        setFilter("");
+        setStatus(emptyStatus);
+        setLastLog("");
+        setShowLog(false);
+        setControlPanelOpen(false);
     }
 
     async function loadSelected(file: DocFile, lang = language) {
@@ -1453,10 +1514,19 @@ function App() {
     }
 
     useEffect(() => {
-        window.i18nToolkit
-            .getLastProjectPath()
-            .then((path: string | null) => setLastProjectPath(path))
-            .catch(() => setLastProjectPath(null));
+        const getRecentProjectPaths = "getRecentProjectPaths" in window.i18nToolkit
+            ? window.i18nToolkit.getRecentProjectPaths
+            : null;
+        if (getRecentProjectPaths) {
+            getRecentProjectPaths()
+                .then((paths: string[]) => setRecentProjects(paths))
+                .catch(() => setRecentProjects([]));
+        } else {
+            window.i18nToolkit
+                .getLastProjectPath()
+                .then((path: string | null) => setRecentProjects(path ? [path] : []))
+                .catch(() => setRecentProjects([]));
+        }
 
         window.i18nToolkit
             .getInitialProject()
@@ -1603,13 +1673,17 @@ function App() {
                 platform={platform}
                 title="i18n Toolkit"
                 onChooseProject={chooseProject}
+                onOpenRecent={openRecentProject}
+                onCloseProject={closeProject}
+                recentProjects={recentProjects}
+                hasProject={false}
                 onOpenConfig={() => setControlPanelOpen(true)}
             >
                 <ProjectPicker
                     onChoose={chooseProject}
-                    onOpenLast={openLastProject}
-                    lastProjectPath={lastProjectPath}
-                    status={status}
+                    recentProjects={recentProjects}
+                    onOpenRecent={openRecentProject}
+                    errorMessage={status.kind === "error" ? status.message : undefined}
                 />
                 <ControlPanel
                     open={controlPanelOpen}
@@ -1631,6 +1705,10 @@ function App() {
                     : "Docusaurus"
             }
             onChooseProject={chooseProject}
+            onOpenRecent={openRecentProject}
+            onCloseProject={closeProject}
+            recentProjects={recentProjects}
+            hasProject={true}
             onOpenConfig={() => setControlPanelOpen(true)}
         >
             <div className="app-shell">
