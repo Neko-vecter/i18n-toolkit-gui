@@ -200,6 +200,7 @@ button {
     padding: 0 10px;
     border-radius: var(--corner-xs);
     corner-shape: var(--corner-curve);
+    outline: none;
     color: var(--muted-strong);
     background: transparent;
     cursor: pointer;
@@ -211,6 +212,10 @@ button {
 .project-menu-trigger[aria-expanded="true"] {
     color: var(--accent-strong);
     background: var(--accent-soft);
+}
+
+.project-menu-trigger:focus-visible {
+    box-shadow: 0 0 0 2px var(--accent);
 }
 
 .project-menu {
