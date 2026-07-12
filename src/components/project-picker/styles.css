@@ -68,7 +68,7 @@
 .project-picker-open {
     display: inline-flex;
     width: fit-content;
-    height: 42px;
+    height: 48px;
     align-items: center;
     justify-content: center;
     gap: 8px;
