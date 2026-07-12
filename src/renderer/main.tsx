@@ -54,6 +54,8 @@ interface AppSettings {
   wordWrap: boolean;
   syncScroll: boolean;
   minimap: boolean;
+  qwenApiKey: string;
+  qwenBaseUrl: string;
 }
 
 const defaultSettings: AppSettings = {
@@ -63,7 +65,9 @@ const defaultSettings: AppSettings = {
   tabSize: 4,
   wordWrap: true,
   syncScroll: true,
-  minimap: false
+  minimap: false,
+  qwenApiKey: "",
+  qwenBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1"
 };
 
 function loadSettings(): AppSettings {
@@ -796,6 +800,28 @@ function ControlPanel({
           </label>
         </section>
 
+        <section className="setting-group ai-settings">
+          <label htmlFor="qwen-api-key">Qwen API key</label>
+          <input
+            id="qwen-api-key"
+            type="password"
+            autoComplete="off"
+            placeholder="API key"
+            value={settings.qwenApiKey}
+            onChange={(event) => update("qwenApiKey", event.target.value)}
+          />
+          <label htmlFor="qwen-base-url">Qwen API address</label>
+          <input
+            id="qwen-base-url"
+            type="url"
+            inputMode="url"
+            autoComplete="url"
+            placeholder="API base URL"
+            value={settings.qwenBaseUrl}
+            onChange={(event) => update("qwenBaseUrl", event.target.value)}
+          />
+        </section>
+
         <section className="setting-group">
           <label>Keyboard shortcuts</label>
           <button className="shortcut-button" type="button" onClick={() => setShortcutsOpen(true)}>
@@ -1369,7 +1395,9 @@ function App() {
         projectRoot: project.rootPath,
         mode: project.mode,
         language,
-        relativePath: selectedFile.relativePath
+        relativePath: selectedFile.relativePath,
+        qwenApiKey: settings.qwenApiKey,
+        qwenBaseUrl: settings.qwenBaseUrl
       })) as RebuildResult;
       setLastLog(result.output || "");
       if (!result.ok) {

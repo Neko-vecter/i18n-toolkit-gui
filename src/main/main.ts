@@ -413,7 +413,8 @@ async function runPythonScript(
   scriptName: string,
   projectRoot: string,
   relativePath: string,
-  language: string
+  language: string,
+  env?: NodeJS.ProcessEnv
 ): Promise<RebuildResult> {
   const toolkitRoot = toolkitPath();
   const scriptPath = path.join(toolkitRoot, scriptName);
@@ -436,7 +437,7 @@ async function runPythonScript(
 
   let lastResult: RebuildResult = { ok: false, output: "" };
   for (const candidate of candidates) {
-    lastResult = await runProcess(candidate.command, candidate.args, projectRoot);
+    lastResult = await runProcess(candidate.command, candidate.args, projectRoot, env);
     if (lastResult.ok || !lastResult.output.includes("failed to start")) {
       return lastResult;
     }
@@ -449,11 +450,25 @@ async function rebuildDocument(payload: RebuildPayload): Promise<RebuildResult> 
     return { ok: false, output: "Rebuild is unavailable in separated TOML mode." };
   }
 
+  const qwenEnv: NodeJS.ProcessEnv = {
+    PYTHONIOENCODING: "utf-8",
+    PYTHONUTF8: "1"
+  };
+  const apiKey = payload.qwenApiKey?.trim();
+  const baseUrl = payload.qwenBaseUrl?.trim();
+  if (apiKey) {
+    qwenEnv.DASHSCOPE_API_KEY = apiKey;
+  }
+  if (baseUrl) {
+    qwenEnv.DASHSCOPE_BASE_URL = baseUrl;
+  }
+
   const middleware = await runPythonScript(
     "build_file_middleware.py",
     payload.projectRoot,
     payload.relativePath,
-    payload.language
+    payload.language,
+    qwenEnv
   );
   if (!middleware.ok) {
     return {
@@ -466,7 +481,8 @@ async function rebuildDocument(payload: RebuildPayload): Promise<RebuildResult> 
     "build_file_i18n.py",
     payload.projectRoot,
     payload.relativePath,
-    payload.language
+    payload.language,
+    qwenEnv
   );
 
   return {

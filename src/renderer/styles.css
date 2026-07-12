@@ -1243,6 +1243,27 @@ button {
   accent-color: var(--accent);
 }
 
+.ai-settings input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--corner-sm);
+  outline: none;
+  color: var(--text);
+  background: var(--surface-muted);
+  font-size: 13px;
+}
+
+.ai-settings input::placeholder {
+  color: var(--muted);
+}
+
+.ai-settings input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
 .shortcut-button {
   height: 36px;
   border: 1px solid var(--border);

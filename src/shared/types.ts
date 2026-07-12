@@ -58,6 +58,8 @@ export interface RebuildPayload {
   mode?: ProjectMode;
   language: string;
   relativePath: string;
+  qwenApiKey?: string;
+  qwenBaseUrl?: string;
 }
 
 export interface ApiError {
