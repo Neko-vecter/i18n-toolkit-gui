@@ -1,0 +1,206 @@
+.setting-group > label {
+    color: var(--muted-strong);
+}
+.range-row span {
+    color: var(--muted);
+}
+.segmented button.active {
+    color: #fff;
+    background: var(--accent);
+}
+.control-panel {
+    position: fixed;
+    z-index: 40;
+    top: 36px;
+    right: 0;
+    display: grid;
+    width: 360px;
+    max-width: 100vw;
+    height: calc(100vh - 36px);
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    border-left: 1px solid var(--border);
+    box-shadow: -20px 0 40px rgba(0, 0, 0, 0.18);
+    background: var(--surface);
+    color: var(--text);
+}
+.control-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px;
+    border-bottom: 1px solid var(--border);
+}
+.control-header span {
+    display: block;
+    font-size: 15px;
+    font-weight: 850;
+}
+.control-header small {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 650;
+}
+.control-content {
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 14px;
+}
+.setting-group {
+    display: grid;
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border-soft);
+}
+.setting-group > label {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+.segmented {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--corner-md);
+    background: var(--surface-muted);
+}
+.segmented button {
+    height: 32px;
+    border-radius: var(--corner-sm);
+    color: var(--muted);
+    background: transparent;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: capitalize;
+}
+.range-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 54px;
+    gap: 12px;
+    align-items: center;
+}
+.range-row input {
+    width: 100%;
+    accent-color: var(--accent);
+}
+.range-row span {
+    font-size: 12px;
+    font-weight: 800;
+    text-align: right;
+}
+.toggles label {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: none;
+}
+.toggles input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+.ai-settings input {
+    width: 100%;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--corner-sm);
+    outline: none;
+    color: var(--text);
+    background: var(--surface-muted);
+    font-size: 13px;
+}
+.ai-settings input::placeholder {
+    color: var(--muted);
+}
+.ai-settings input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.shortcut-button {
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: var(--corner-md);
+    color: var(--accent-strong);
+    background: var(--accent-soft);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 800;
+}
+.shortcut-dialog-backdrop {
+    position: fixed;
+    z-index: 50;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(15, 23, 32, 0.38);
+}
+.shortcut-dialog {
+    width: min(440px, 100%);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--corner-md);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+    background: var(--surface);
+    color: var(--text);
+}
+.shortcut-dialog header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px;
+    border-bottom: 1px solid var(--border-soft);
+}
+.shortcut-dialog h2,
+.shortcut-dialog p {
+    margin: 0;
+}
+.shortcut-dialog h2 {
+    font-size: 16px;
+}
+.shortcut-dialog p {
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 650;
+}
+.shortcut-list {
+    margin: 0;
+    padding: 8px 18px 16px;
+}
+.shortcut-list div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-soft);
+}
+.shortcut-list div:last-child {
+    border-bottom: 0;
+}
+.shortcut-list dt {
+    font-size: 13px;
+    font-weight: 750;
+}
+.shortcut-list dd {
+    margin: 0;
+    padding: 4px 7px;
+    border: 1px solid var(--border);
+    border-radius: var(--corner-sm);
+    color: var(--muted-strong);
+    background: var(--surface-muted);
+    font-family: inherit;
+    font-size: 12px;
+    white-space: nowrap;
+}
