@@ -230,11 +230,16 @@ button {
     width: 34px;
     height: 28px;
     border-radius: var(--corner-sm);
+    outline: none;
 }
 
 .titlebar-tool:hover {
     color: var(--accent-strong);
     background: var(--accent-soft);
+}
+
+.titlebar-tool:focus-visible {
+    box-shadow: 0 0 0 2px var(--accent);
 }
 
 .window-controls {

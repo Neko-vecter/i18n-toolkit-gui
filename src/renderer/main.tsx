@@ -1665,22 +1665,6 @@ function App() {
                                 </div>
                             ) : null}
                         </div>
-                        <div className="sidebar-actions">
-                            <button
-                                className="icon-button"
-                                onClick={chooseProject}
-                                title="Open project"
-                            >
-                                <Upload size={17} />
-                            </button>
-                            <button
-                                className="icon-button"
-                                onClick={() => setControlPanelOpen(true)}
-                                title="Control panel"
-                            >
-                                <Settings size={17} />
-                            </button>
-                        </div>
                     </div>
                     <label className="search-box">
                         <Search size={15} />
