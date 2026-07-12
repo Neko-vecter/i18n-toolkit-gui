@@ -7,3 +7,11 @@ This project is a electron GUI for i18n workflow.
 ## UI
 
 - TODO
+
+## Build
+
+### Windows
+
+```shell
+yarn dist:win
+```
