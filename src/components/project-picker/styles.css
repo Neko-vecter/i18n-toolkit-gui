@@ -84,7 +84,9 @@
 }
 .project-picker-recent-list {
     display: grid;
+    min-height: 112px;
     max-height: 180px;
+    align-content: start;
     gap: 6px;
     overflow-y: auto;
 }

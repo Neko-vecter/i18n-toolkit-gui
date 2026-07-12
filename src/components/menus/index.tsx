@@ -23,6 +23,7 @@ export function ProjectMenu({
 }: ProjectMenuProps) {
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement | null>(null);
+    const visibleRecentProjects = recentProjects.slice(0, 5);
 
     useEffect(() => {
         if (!open) {
@@ -70,8 +71,8 @@ export function ProjectMenu({
                         Open Project...
                     </button>
                     <div className="project-menu-label">Recent Projects</div>
-                    {recentProjects.length ? (
-                        recentProjects.map((projectPath) => (
+                    {visibleRecentProjects.length ? (
+                        visibleRecentProjects.map((projectPath) => (
                             <button
                                 key={projectPath}
                                 type="button"
