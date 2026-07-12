@@ -2,7 +2,7 @@ import json
 import argparse
 import logging
 from pathlib import Path
-from build_middleware import build_file
+from i18n_toolkit_middleware import build_file
 
 # Configure logging
 logging.basicConfig(

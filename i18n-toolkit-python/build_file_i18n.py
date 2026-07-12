@@ -1,7 +1,7 @@
 import argparse
 import logging
 from pathlib import Path
-from sync_to_i18n import rebuild_file
+from i18n_toolkit_build import rebuild_file
 
 logging.basicConfig(
     level=logging.INFO,
