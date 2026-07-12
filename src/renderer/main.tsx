@@ -801,7 +801,7 @@ function ControlPanel({
         </section>
 
         <section className="setting-group ai-settings">
-          <label htmlFor="qwen-api-key">Qwen API key</label>
+          <label htmlFor="qwen-api-key">API key</label>
           <input
             id="qwen-api-key"
             type="password"
@@ -810,7 +810,7 @@ function ControlPanel({
             value={settings.qwenApiKey}
             onChange={(event) => update("qwenApiKey", event.target.value)}
           />
-          <label htmlFor="qwen-base-url">Qwen API address</label>
+          <label htmlFor="qwen-base-url">API address</label>
           <input
             id="qwen-base-url"
             type="url"
