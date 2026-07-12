@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, type OpenDialogOptions } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen, type OpenDialogOptions } from "electron";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -498,12 +498,30 @@ async function rebuildDocument(payload: RebuildPayload): Promise<RebuildResult> 
   };
 }
 
+function getInitialWindowSize() {
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+  const screenRatio = screenWidth / screenHeight;
+  const ratio = screenRatio >= 2 ? 2 : 16 / 9;
+
+  // adapt size for different display
+  const preferredWidth = screenRatio >= 2 ? 1920 : screenWidth >= 2560 ? 1920 : screenWidth >= 1920 ? 1600 : 1200;
+  const horizontalMargin = screenWidth >= 1600 ? 96 : 48;
+  const verticalMargin = screenHeight >= 900 ? 96 : 48;
+  const maxWidth = Math.min(screenWidth - horizontalMargin, (screenHeight - verticalMargin) * ratio);
+  const width = Math.floor(Math.min(preferredWidth, maxWidth));
+
+  return {
+    width,
+    height: Math.floor(width / ratio)
+  };
+}
+
 async function createWindow() {
+  const initialSize = getInitialWindowSize();
   const win = new BrowserWindow({
-    width: 1440,
-    height: 960,
-    minWidth: 1080,
-    minHeight: 720,
+    ...initialSize,
+    minWidth: 960,
+    minHeight: 540,
     title: "i18n Toolkit",
     backgroundColor: "#f6f3ee",
     frame: process.platform === "darwin",
