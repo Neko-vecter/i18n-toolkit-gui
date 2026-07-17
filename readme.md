@@ -6,8 +6,8 @@ This project is a electron GUI for i18n workflow.
 
 ## UI
 
-<img src="./img/launch-ui.png" width="40%">
-<img src="./img/edit-ui.png" width="40%">
+<img src="./img/launch-ui.png" width="100%">
+<img src="./img/edit-ui.png" width="100%">
 
 ## Dev
 
