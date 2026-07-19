@@ -1823,7 +1823,7 @@ function App() {
                             ) : null}
                             {!isSeparatedToml ? (
                                 <button
-                                    className="toolbar-button"
+                                    className="toolbar-button preview-button"
                                     onClick={rebuild}
                                     disabled={
                                         !selectedFile ||
