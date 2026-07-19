@@ -43,7 +43,7 @@ def translate_ai(text:str, src_language:str, target_language:str):
         user_prompt = text
 
         completion = client.chat.completions.create(
-            model="qwen3-30b-a3b-instruct-2507",  # 模型列表: https://help.aliyun.com/model-studio/getting-started/models
+            model=os.getenv("DASHSCOPE_MODEL", "qwen3-30b-a3b-instruct-2507"),  # 模型列表: https://help.aliyun.com/model-studio/getting-started/models
             messages=[
                 {'role': 'system', 'content': sys_prompt},
                 {'role': 'user', 'content': user_prompt}

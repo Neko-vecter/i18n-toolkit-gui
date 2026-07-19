@@ -45,6 +45,12 @@ export interface RebuildResult {
   output: string;
 }
 
+export interface ApiConfig {
+  qwenApiKey: string;
+  qwenBaseUrl: string;
+  qwenModel: string;
+}
+
 export interface SaveTranslationsPayload {
   projectRoot: string;
   mode: ProjectMode;
@@ -60,6 +66,7 @@ export interface RebuildPayload {
   relativePath: string;
   qwenApiKey?: string;
   qwenBaseUrl?: string;
+  qwenModel?: string;
 }
 
 export interface ApiError {

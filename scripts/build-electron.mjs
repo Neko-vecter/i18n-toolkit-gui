@@ -21,6 +21,7 @@ await fs.writeFile(
 const { contextBridge, ipcRenderer } = require("electron");
 
 const api = {
+  getApiConfig: () => ipcRenderer.invoke("api:getConfig"),
   getInitialProject: () => ipcRenderer.invoke("project:getInitial"),
   getLastProjectPath: () => ipcRenderer.invoke("project:getLastPath"),
   chooseProject: () => ipcRenderer.invoke("project:choose"),

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import * as TOML from "@iarna/toml";
 import type {
+  ApiConfig,
   DocFile,
   LoadedDocument,
   ProjectMode,
@@ -461,11 +462,15 @@ async function rebuildDocument(payload: RebuildPayload): Promise<RebuildResult> 
   };
   const apiKey = payload.qwenApiKey?.trim();
   const baseUrl = payload.qwenBaseUrl?.trim();
+  const model = payload.qwenModel?.trim();
   if (apiKey) {
     qwenEnv.DASHSCOPE_API_KEY = apiKey;
   }
   if (baseUrl) {
     qwenEnv.DASHSCOPE_BASE_URL = baseUrl;
+  }
+  if (model) {
+    qwenEnv.DASHSCOPE_MODEL = model;
   }
 
   const middleware = await runPythonScript(
@@ -543,6 +548,12 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  ipcMain.handle("api:getConfig", (): ApiConfig => ({
+    qwenApiKey: process.env.DASHSCOPE_API_KEY ?? "",
+    qwenBaseUrl: process.env.DASHSCOPE_BASE_URL ?? "",
+    qwenModel: process.env.DASHSCOPE_MODEL ?? ""
+  }));
+
   ipcMain.handle("project:getInitial", async () => {
     const config = await readConfig();
     if (!config.lastProjectRoot || !(await detectProjectMode(config.lastProjectRoot))) {

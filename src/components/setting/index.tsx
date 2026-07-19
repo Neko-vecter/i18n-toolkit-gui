@@ -14,6 +14,7 @@ export interface AppSettings {
     minimap: boolean;
     qwenApiKey: string;
     qwenBaseUrl: string;
+    qwenModel: string;
 }
 
 interface ControlPanelProps {
@@ -163,6 +164,17 @@ export function ControlPanel({
                         value={settings.qwenBaseUrl}
                         onChange={(event) =>
                             update("qwenBaseUrl", event.target.value)
+                        }
+                    />
+                    <label htmlFor="qwen-model">Model</label>
+                    <input
+                        id="qwen-model"
+                        type="text"
+                        autoComplete="off"
+                        placeholder="Model name"
+                        value={settings.qwenModel}
+                        onChange={(event) =>
+                            update("qwenModel", event.target.value)
                         }
                     />
                 </section>

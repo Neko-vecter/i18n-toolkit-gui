@@ -25,6 +25,7 @@ import {
     Upload,
 } from "lucide-react";
 import type {
+    ApiConfig,
     DocFile,
     LoadedDocument,
     ProjectState,
@@ -69,6 +70,7 @@ const defaultSettings: AppSettings = {
     minimap: false,
     qwenApiKey: "",
     qwenBaseUrl: "",
+    qwenModel: "",
 };
 
 function loadSettings(): AppSettings {
@@ -1415,6 +1417,7 @@ function App() {
                 relativePath: selectedFile.relativePath,
                 qwenApiKey: settings.qwenApiKey,
                 qwenBaseUrl: settings.qwenBaseUrl,
+                qwenModel: settings.qwenModel,
             })) as RebuildResult;
             setLastLog(result.output || "");
             if (!result.ok) {
@@ -1440,6 +1443,27 @@ function App() {
     }
 
     useEffect(() => {
+        if ("getApiConfig" in window.i18nToolkit) {
+            window.i18nToolkit
+                .getApiConfig()
+                .then((apiConfig: ApiConfig) => {
+                    setSettings((current) => {
+                        const next = {
+                            ...current,
+                            qwenApiKey: current.qwenApiKey || apiConfig.qwenApiKey,
+                            qwenBaseUrl: current.qwenBaseUrl || apiConfig.qwenBaseUrl,
+                            qwenModel: current.qwenModel || apiConfig.qwenModel,
+                        };
+                        localStorage.setItem(
+                            "i18n-toolkit-settings",
+                            JSON.stringify(next),
+                        );
+                        return next;
+                    });
+                })
+                .catch(() => undefined);
+        }
+
         const getRecentProjectPaths = "getRecentProjectPaths" in window.i18nToolkit
             ? window.i18nToolkit.getRecentProjectPaths
             : null;

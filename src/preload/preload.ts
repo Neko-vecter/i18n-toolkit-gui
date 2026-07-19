@@ -1,7 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { ProjectMode, RebuildPayload, SaveTranslationsPayload } from "../shared/types.js";
+import type { ApiConfig, ProjectMode, RebuildPayload, SaveTranslationsPayload } from "../shared/types.js";
 
 const api = {
+  getApiConfig: (): Promise<ApiConfig> => ipcRenderer.invoke("api:getConfig"),
   getInitialProject: () => ipcRenderer.invoke("project:getInitial"),
   getLastProjectPath: () => ipcRenderer.invoke("project:getLastPath"),
   getRecentProjectPaths: () => ipcRenderer.invoke("project:getRecentPaths"),
