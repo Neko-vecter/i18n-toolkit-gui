@@ -56,9 +56,6 @@
       }
     ],
     "win": {
-      "target": [
-        "portable"
-      ],
       "signExecutable": false
     }
   }
