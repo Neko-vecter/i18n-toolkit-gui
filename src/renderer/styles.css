@@ -525,7 +525,8 @@ button {
     top: calc(100% + 6px);
     right: 0;
     display: grid;
-    width: max(100%, 148px);
+    gap: 2px;
+    width: max(100%, 128px);
     max-height: 240px;
     overflow-y: auto;
     padding: 5px;
@@ -539,7 +540,7 @@ button {
     display: block;
     width: 100%;
     min-width: 0;
-    height: 30px;
+    height: 32px;
     overflow: hidden;
     padding: 0 9px;
     border-radius: var(--corner-sm);
