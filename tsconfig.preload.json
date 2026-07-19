@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "dist-electron/preload-cjs",
+    "rootDir": "src",
+    "types": ["node"]
+  },
+  "include": ["src/preload/preload.ts", "src/shared/types.ts"]
+}

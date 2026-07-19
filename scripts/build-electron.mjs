@@ -15,44 +15,21 @@ if (compileElectron.status !== 0) {
 }
 
 await fs.mkdir("dist-electron/preload", { recursive: true });
+const compilePreload = spawnSync(
+  process.execPath,
+  ["./node_modules/typescript/bin/tsc", "-p", "tsconfig.preload.json"],
+  {
+    stdio: "inherit",
+    shell: false
+  }
+);
+
+if (compilePreload.status !== 0) {
+  process.exit(compilePreload.status ?? 1);
+}
+
 await fs.writeFile(
   "dist-electron/preload/preload.cjs",
-  `"use strict";
-const { contextBridge, ipcRenderer } = require("electron");
-
-const api = {
-  getApiConfig: () => ipcRenderer.invoke("api:getConfig"),
-  getInitialProject: () => ipcRenderer.invoke("project:getInitial"),
-  getLastProjectPath: () => ipcRenderer.invoke("project:getLastPath"),
-  chooseProject: () => ipcRenderer.invoke("project:choose"),
-  openProject: (rootPath) => ipcRenderer.invoke("project:open", rootPath),
-  platform: process.platform,
-  windowMinimize: () => ipcRenderer.invoke("window:minimize"),
-  windowMaximize: () => ipcRenderer.invoke("window:maximize"),
-  windowClose: () => ipcRenderer.invoke("window:close"),
-  scanFiles: (projectRoot, mode, language) =>
-    ipcRenderer.invoke("project:scanFiles", { projectRoot, mode, language }),
-  loadDocument: (projectRoot, mode, language, relativePath) =>
-    ipcRenderer.invoke("document:load", { projectRoot, mode, language, relativePath }),
-  saveTranslations: (payload) => ipcRenderer.invoke("document:saveTranslations", payload),
-  rebuildDocument: (payload) => ipcRenderer.invoke("document:rebuild", payload),
-  onOpenProjectRequest: (callback) => {
-    const listener = () => callback();
-    ipcRenderer.on("project:openRequest", listener);
-    return () => {
-      ipcRenderer.removeListener("project:openRequest", listener);
-    };
-  },
-  onOpenConfigRequest: (callback) => {
-    const listener = () => callback();
-    ipcRenderer.on("config:openRequest", listener);
-    return () => {
-      ipcRenderer.removeListener("config:openRequest", listener);
-    };
-  }
-};
-
-contextBridge.exposeInMainWorld("i18nToolkit", api);
-`,
+  await fs.readFile("dist-electron/preload-cjs/preload/preload.js"),
   "utf8"
 );
