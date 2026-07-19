@@ -1152,6 +1152,7 @@ function App() {
     const [document, setDocument] = useState<LoadedDocument | null>(null);
     const [blocks, setBlocks] = useState<TranslationBlock[]>([]);
     const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
+    const [blockInputValue, setBlockInputValue] = useState("");
     const [documentView, setDocumentView] = useState<DocumentView>("list");
     const [dirty, setDirty] = useState(false);
     const [filter, setFilter] = useState("");
@@ -1196,14 +1197,18 @@ function App() {
         settings.themeMode === "system" ? systemTheme : settings.themeMode;
     const isSeparatedToml = project?.mode === "separated-toml";
 
-    function jumpToBlock(value: string) {
-        const nextIndex = Number.parseInt(value, 10) - 1;
-        if (!Number.isFinite(nextIndex) || !blocks.length) {
+    function commitBlockInput(value: string) {
+        if (!blocks.length) {
             return;
         }
-        setCurrentBlockIndex(
-            Math.min(blocks.length - 1, Math.max(0, nextIndex)),
-        );
+
+        const parsedPosition = Number.parseInt(value.trim(), 10);
+        const nextPosition = Number.isFinite(parsedPosition)
+            ? Math.min(blocks.length, Math.max(1, parsedPosition))
+            : 1;
+
+        setCurrentBlockIndex(nextPosition - 1);
+        setBlockInputValue(String(nextPosition));
         setDocumentView("detail");
     }
 
@@ -1441,6 +1446,10 @@ function App() {
             });
         }
     }
+
+    useEffect(() => {
+        setBlockInputValue(blocks.length ? String(currentBlockIndex + 1) : "");
+    }, [blocks.length, currentBlockIndex]);
 
     useEffect(() => {
         if ("getApiConfig" in window.i18nToolkit) {
@@ -1745,9 +1754,7 @@ function App() {
                                             min="1"
                                             max={Math.max(1, blocks.length)}
                                             value={
-                                                blocks.length
-                                                    ? currentBlockIndex + 1
-                                                    : ""
+                                                blockInputValue
                                             }
                                             disabled={
                                                 !blocks.length ||
@@ -1755,8 +1762,25 @@ function App() {
                                                 status.kind === "rebuilding"
                                             }
                                             onChange={(event) =>
-                                                jumpToBlock(event.target.value)
+                                                setBlockInputValue(
+                                                    event.target.value,
+                                                )
                                             }
+                                            onBlur={(event) =>
+                                                commitBlockInput(
+                                                    event.currentTarget.value,
+                                                )
+                                            }
+                                            onKeyDown={(event) => {
+                                                if (event.key !== "Enter") {
+                                                    return;
+                                                }
+                                                event.preventDefault();
+                                                commitBlockInput(
+                                                    event.currentTarget.value,
+                                                );
+                                                event.currentTarget.blur();
+                                            }}
                                         />
                                         <span>/ {blocks.length}</span>
                                     </label>
