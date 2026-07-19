@@ -593,6 +593,17 @@ button {
     text-align: right;
 }
 
+.jump-control input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.jump-control input[type="number"]::-webkit-outer-spin-button,
+.jump-control input[type="number"]::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+}
+
 .jump-control input:disabled {
     opacity: 0.55;
 }
