@@ -53,6 +53,9 @@ export function ControlPanel({
                 <div>
                     <span>Control panel</span>
                     <small>Editor and appearance</small>
+                    <small className="build-info">
+                        i18n-toolkit {__VERSION__} {__GIT_COMMIT__}
+                    </small>
                 </div>
                 <button
                     className="icon-button"
