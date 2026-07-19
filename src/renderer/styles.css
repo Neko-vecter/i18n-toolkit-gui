@@ -386,6 +386,7 @@ button {
     grid-template-columns: 15px minmax(0, 1fr);
     width: 100%;
     min-height: 24px;
+    margin-bottom: 2px;
     align-items: center;
     gap: 5px;
     padding-top: 0;
