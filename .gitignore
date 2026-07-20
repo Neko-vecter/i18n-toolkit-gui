@@ -7,6 +7,9 @@ node_modules
 .electron-user-data
 src/renderer/generated-fonts
 
-yarn.lock
 __pycache__
 .electron-user-data
+
+.yarn
+.pnp.cjs
+.pnp.loader.mjs
