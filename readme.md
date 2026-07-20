@@ -17,7 +17,7 @@ This project is a electron GUI for i18n workflow.
 ## Dev
 
 > [!important]
-> This project is using yarn v4 (yarn@4.17.1)
+> This project is using yarn v4 `yarn@4.17.1`
 
 Install Corepack
 
@@ -39,7 +39,7 @@ yarn dev
 ## Build
 
 > [!important]
-> This project is using yarn v4 (yarn@4.17.1)
+> This project is using yarn v4 `yarn@4.17.1`
 
 Install Corepack
 
