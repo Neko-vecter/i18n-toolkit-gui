@@ -1,5 +1,10 @@
 # i18n toolkit GUI
 
+> [!important]
+> This project current in dev. Actions workflows will be introduced once the project reaches a stable state.
+>
+> Refer to the [build instructions](#build) below to build from source. 
+
 ## what is this project?
 
 This project is a electron GUI for i18n workflow.
@@ -10,6 +15,16 @@ This project is a electron GUI for i18n workflow.
 <img src="./img/edit-ui.png" width="100%">
 
 ## Dev
+
+> [!important]
+> This project is using yarn v4 (yarn@4.17.1)
+
+Install Corepack
+
+```shell
+npm install -g corepack
+corepack enable
+```
 
 Install Dependency
 
@@ -22,6 +37,16 @@ yarn dev
 ```
 
 ## Build
+
+> [!important]
+> This project is using yarn v4 (yarn@4.17.1)
+
+Install Corepack
+
+```shell
+npm install -g corepack
+corepack enable
+```
 
 Install Dependency
 
