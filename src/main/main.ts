@@ -509,17 +509,32 @@ async function rebuildDocument(payload: RebuildPayload): Promise<RebuildResult> 
   };
 }
 
-function getInitialWindowSize() {
-  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
-  const screenRatio = screenWidth / screenHeight;
-  const ratio = screenRatio >= 2 ? 2 : 16 / 9;
+const BASELINE_WINDOW_WIDTH = 1600;
+const BASELINE_WINDOW_HEIGHT = 900;
+const COMFORTABLE_SCREEN_FRACTION = 0.85;
+const ULTRAWIDE_SCREEN_RATIO = 2;
+const STANDARD_WINDOW_RATIO = 16 / 9;
 
-  // adapt size for different display
-  const preferredWidth = screenRatio >= 2 ? 1920 : screenWidth >= 2560 ? 1920 : screenWidth >= 1920 ? 1600 : 1200;
-  const horizontalMargin = screenWidth >= 1600 ? 96 : 48;
-  const verticalMargin = screenHeight >= 900 ? 96 : 48;
-  const maxWidth = Math.min(screenWidth - horizontalMargin, (screenHeight - verticalMargin) * ratio);
-  const width = Math.floor(Math.min(preferredWidth, maxWidth));
+function getInitialWindowSize(display: Electron.Display) {
+  const { width: workAreaWidth, height: workAreaHeight } = display.workArea;
+  const screenRatio = workAreaWidth / workAreaHeight;
+  const ratio = screenRatio >= ULTRAWIDE_SCREEN_RATIO ? ULTRAWIDE_SCREEN_RATIO : STANDARD_WINDOW_RATIO;
+  const comfortableWidth = Math.floor(
+    Math.min(
+      workAreaWidth * COMFORTABLE_SCREEN_FRACTION,
+      workAreaHeight * COMFORTABLE_SCREEN_FRACTION * ratio
+    )
+  );
+  const minimumWidthForRatio = Math.max(
+    BASELINE_WINDOW_WIDTH,
+    Math.ceil(BASELINE_WINDOW_HEIGHT * ratio)
+  );
+  const minimumHeightForRatio = Math.ceil(minimumWidthForRatio / ratio);
+  const canFitBaseline =
+    workAreaWidth >= minimumWidthForRatio && workAreaHeight >= minimumHeightForRatio;
+  const width = canFitBaseline
+    ? Math.max(comfortableWidth, minimumWidthForRatio)
+    : comfortableWidth;
 
   return {
     width,
@@ -527,12 +542,35 @@ function getInitialWindowSize() {
   };
 }
 
+function getInitialWindowBounds(display: Electron.Display) {
+  const { width, height } = getInitialWindowSize(display);
+  const { x, y, width: workAreaWidth, height: workAreaHeight } = display.workArea;
+
+  return {
+    width,
+    height,
+    x: Math.round(x + (workAreaWidth - width) / 2),
+    y: Math.round(y + (workAreaHeight - height) / 2)
+  };
+}
+
+function centerWindowOnDisplay(win: BrowserWindow, display: Electron.Display) {
+  const { width, height } = win.getBounds();
+  const { x, y, width: workAreaWidth, height: workAreaHeight } = display.workArea;
+
+  win.setPosition(
+    Math.round(x + (workAreaWidth - width) / 2),
+    Math.round(y + (workAreaHeight - height) / 2)
+  );
+}
+
 async function createWindow() {
-  const initialSize = getInitialWindowSize();
+  const launchDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const initialBounds = getInitialWindowBounds(launchDisplay);
   const win = new BrowserWindow({
-    ...initialSize,
-    minWidth: 960,
-    minHeight: 540,
+    ...initialBounds,
+    minWidth: Math.min(BASELINE_WINDOW_WIDTH, initialBounds.width),
+    minHeight: Math.min(BASELINE_WINDOW_HEIGHT, initialBounds.height),
     title: "i18n Toolkit",
     backgroundColor: "#f6f3ee",
     frame: process.platform === "darwin",
@@ -544,6 +582,7 @@ async function createWindow() {
       nodeIntegration: false
     }
   });
+  centerWindowOnDisplay(win, launchDisplay);
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
   if (devServerUrl) {
