@@ -16,15 +16,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup Corepack
+        run: |
+          corepack enable
+
       - uses: actions/setup-node@v6
         with:
           node-version: '24.x'
-
-      - name: Enable Corepack
-        run: corepack enable
+          cache: yarn
+          cache-dependency-path: yarn.lock
 
       - name: Install
-        run: yarn install
+        run: yarn install --immutable
 
       - name: Build
         run: |
