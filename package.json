@@ -18,7 +18,7 @@
     "@iarna/toml": "^2.2.5",
     "@monaco-editor/react": "^4.7.0",
     "harmonyos-sans": "^1.0.0",
-    "lucide-react": "^1.24.0",
+    "lucide-react": "^1.39.0",
     "monaco-editor": "^0.55.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

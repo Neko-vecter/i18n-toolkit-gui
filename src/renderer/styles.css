@@ -505,10 +505,24 @@ button {
 }
 
 .language-trigger:hover,
-.language-select:focus-within .language-trigger {
+.language-trigger:focus-visible {
     border-color: var(--accent);
     color: var(--accent-strong);
     background: var(--surface-strong);
+}
+
+.language-trigger:focus {
+    outline: none;
+}
+
+.language-trigger:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.language-trigger:disabled {
+    cursor: wait;
+    opacity: 0.65;
 }
 
 .language-trigger span {
@@ -877,6 +891,28 @@ button {
 
 .structure-header div:first-child {
     border-right: 1px solid #ddd6cc;
+}
+
+.structure-header .origin-heading {
+    min-width: 0;
+    justify-content: space-between;
+    gap: 12px;
+    text-transform: none;
+}
+
+.structure-header .origin-heading > span:first-child {
+    text-transform: uppercase;
+}
+
+.structure-header .origin-reference {
+    min-width: 0;
+    overflow: hidden;
+    color: #687681;
+    font-size: 12px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    text-transform: none;
+    white-space: nowrap;
 }
 
 .blocks {

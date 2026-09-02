@@ -17,6 +17,7 @@ import type {
   SaveTranslationsPayload,
   TranslationBlock
 } from "../shared/types.js";
+import { sha256KeyPrefix } from "../shared/translation.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -352,15 +353,20 @@ async function saveTranslations(payload: SaveTranslationsPayload): Promise<Loade
   }
 
   const parsed = TOML.parse(await fs.readFile(tomlPath, "utf8")) as TomlDocument;
-  const translationByKey = new Map(payload.blocks.map((block) => [block.key, block.translate]));
+  const translationByKey = new Map(
+    payload.blocks.map((block) => [sha256KeyPrefix(block.key), block.translate])
+  );
   const blocks = Array.isArray(parsed.block) ? parsed.block : [];
 
   const nextBlocks = blocks.map((block) => {
     const key = String(block.key ?? "");
+    const keyPrefix = sha256KeyPrefix(key);
     return {
       key,
       origin: String(block.origin ?? ""),
-      translate: translationByKey.has(key) ? (translationByKey.get(key) ?? "") : String(block.translate ?? "")
+      translate: translationByKey.has(keyPrefix)
+        ? (translationByKey.get(keyPrefix) ?? "")
+        : String(block.translate ?? "")
     };
   });
 

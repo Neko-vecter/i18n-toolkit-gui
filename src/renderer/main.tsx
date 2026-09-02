@@ -7,6 +7,7 @@ import {
     ChevronDown,
     ChevronRight,
     FileText,
+    FileTypeCorner,
     Folder,
     FolderOpen,
     Hash,
@@ -32,6 +33,7 @@ import type {
     RebuildResult,
     TranslationBlock,
 } from "../shared/types";
+import { findTranslationBlockByKey } from "../shared/translation";
 import { ControlPanel, type AppSettings } from "../components/setting";
 import { ProjectMenu } from "../components/menus";
 import { ProjectPicker } from "../components/project-picker";
@@ -59,6 +61,7 @@ interface TreeNode {
 }
 
 const emptyStatus: StatusState = { kind: "idle", message: "Ready" };
+const DEFAULT_ORIGIN_REFERENCE = "__origin__";
 
 const defaultSettings: AppSettings = {
     themeMode: "system",
@@ -951,10 +954,20 @@ function BlockTable({
 function LanguageDropdown({
     value,
     languages,
+    ariaLabel = "Working language",
+    className,
+    disabled = false,
+    formatValue = (language: string) => language,
+    icon = <Languages size={16} />,
     onChange,
 }: {
     value: string;
     languages: string[];
+    ariaLabel?: string;
+    className?: string;
+    disabled?: boolean;
+    formatValue?: (language: string) => string;
+    icon?: React.ReactNode;
     onChange: (language: string) => void;
 }) {
     const [open, setOpen] = useState(false);
@@ -987,23 +1000,27 @@ function LanguageDropdown({
     }, [open]);
 
     return (
-        <div className="language-select" ref={rootRef}>
+        <div
+            className={`language-select${className ? ` ${className}` : ""}`}
+            ref={rootRef}
+        >
             <button
                 className="language-trigger"
                 type="button"
+                disabled={disabled}
                 onClick={() => setOpen((visible) => !visible)}
                 aria-haspopup="listbox"
                 aria-expanded={open}
             >
-                <Languages size={16} />
-                <span>{activeValue}</span>
+                {icon}
+                <span>{formatValue(activeValue)}</span>
                 <ChevronDown size={14} />
             </button>
             {open ? (
                 <div
                     className="language-menu"
                     role="listbox"
-                    aria-label="Working language"
+                    aria-label={ariaLabel}
                 >
                     {options.map((lang) => (
                         <button
@@ -1017,7 +1034,7 @@ function LanguageDropdown({
                                 setOpen(false);
                             }}
                         >
-                            {lang}
+                            {formatValue(lang)}
                         </button>
                     ))}
                 </div>
@@ -1148,6 +1165,9 @@ function App() {
 
     const [project, setProject] = useState<ProjectState | null>(null);
     const [language, setLanguage] = useState("");
+    const [referenceLanguage, setReferenceLanguage] = useState("");
+    const [referenceDocument, setReferenceDocument] =
+        useState<LoadedDocument | null>(null);
     const [selectedFile, setSelectedFile] = useState<DocFile | null>(null);
     const [document, setDocument] = useState<LoadedDocument | null>(null);
     const [blocks, setBlocks] = useState<TranslationBlock[]>([]);
@@ -1196,6 +1216,20 @@ function App() {
     const colorTheme =
         settings.themeMode === "system" ? systemTheme : settings.themeMode;
     const isSeparatedToml = project?.mode === "separated-toml";
+    const referenceLanguages = useMemo(
+        () =>
+            project?.languages.filter((candidate) => candidate !== language) ?? [],
+        [project, language],
+    );
+    const referenceBlock =
+        currentBlock && referenceLanguage && referenceDocument?.tomlExists
+            ? findTranslationBlockByKey(
+                  referenceDocument.blocks,
+                  currentBlock.key,
+              )
+            : undefined;
+    const displayedOrigin =
+        referenceBlock?.translate ?? currentBlock?.origin ?? "";
 
     function commitBlockInput(value: string) {
         if (!blocks.length) {
@@ -1228,6 +1262,7 @@ function App() {
     function clearDocumentState() {
         setSelectedFile(null);
         setDocument(null);
+        setReferenceDocument(null);
         setBlocks([]);
         setCurrentBlockIndex(0);
         setDocumentView("list");
@@ -1237,6 +1272,8 @@ function App() {
     function applyProject(next: ProjectState) {
         setProject(next);
         setLanguage(next.languages[0] ?? "en");
+        setReferenceLanguage("");
+        setReferenceDocument(null);
         clearDocumentState();
         setLastLog("");
         setShowLog(false);
@@ -1296,6 +1333,7 @@ function App() {
             return;
         }
         setSelectedFile(file);
+        setReferenceDocument(null);
         setStatus({ kind: "loading", message: "Loading document" });
         try {
             const loaded = (await window.i18nToolkit.loadDocument(
@@ -1626,6 +1664,46 @@ function App() {
         }
     }, [language]);
 
+    useEffect(() => {
+        if (!referenceLanguage || referenceLanguages.includes(referenceLanguage)) {
+            return;
+        }
+
+        setReferenceLanguage("");
+        setReferenceDocument(null);
+    }, [referenceLanguage, referenceLanguages]);
+
+    useEffect(() => {
+        if (!project || !selectedFile || !referenceLanguage) {
+            setReferenceDocument(null);
+            return;
+        }
+
+        let cancelled = false;
+        setReferenceDocument(null);
+        window.i18nToolkit
+            .loadDocument(
+                project.rootPath,
+                project.mode,
+                referenceLanguage,
+                selectedFile.relativePath,
+            )
+            .then((loaded: LoadedDocument) => {
+                if (!cancelled) {
+                    setReferenceDocument(loaded);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setReferenceDocument(null);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [project, referenceLanguage, selectedFile]);
+
     if (!project) {
         return (
             <WindowFrame
@@ -1737,6 +1815,37 @@ function App() {
                             {dirty ? <small>Unsaved</small> : null}
                         </div>
                         <div className="toolbar">
+                            {selectedFile && documentView === "detail" ? (
+                                <LanguageDropdown
+                                    value={
+                                        referenceLanguage ||
+                                        DEFAULT_ORIGIN_REFERENCE
+                                    }
+                                    languages={[
+                                        DEFAULT_ORIGIN_REFERENCE,
+                                        ...referenceLanguages,
+                                    ]}
+                                    ariaLabel="Origin reference language"
+                                    className="reference-language-dropdown"
+                                    disabled={
+                                        status.kind === "saving" ||
+                                        status.kind === "rebuilding"
+                                    }
+                                    formatValue={(value) =>
+                                        value === DEFAULT_ORIGIN_REFERENCE
+                                            ? "origin"
+                                            : value
+                                    }
+                                    icon={<FileTypeCorner size={16} />}
+                                    onChange={(value) =>
+                                        setReferenceLanguage(
+                                            value === DEFAULT_ORIGIN_REFERENCE
+                                                ? ""
+                                                : value,
+                                        )
+                                    }
+                                />
+                            ) : null}
                             <LanguageDropdown
                                 value={language}
                                 languages={project.languages}
@@ -1917,7 +2026,14 @@ function App() {
                     ) : (
                         <main className="translation-structure">
                             <div className="structure-header">
-                                <div>Original</div>
+                                <div className="origin-heading">
+                                    <span>Original</span>
+                                    {referenceLanguage ? (
+                                        <span className="origin-reference">
+                                            Reference on {referenceLanguage.toUpperCase()}
+                                        </span>
+                                    ) : null}
+                                </div>
                                 <div>Translation</div>
                             </div>
                             <div className="blocks">
@@ -1937,7 +2053,7 @@ function App() {
                                         </div>
                                         <SyncedMdxEditors
                                             origin={normalizeTomlText(
-                                                currentBlock.origin,
+                                                displayedOrigin,
                                             )}
                                             translate={normalizeTomlText(
                                                 currentBlock.translate,

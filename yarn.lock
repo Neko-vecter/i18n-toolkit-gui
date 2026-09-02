@@ -1828,7 +1828,7 @@ __metadata:
     electron: "npm:^43.1.0"
     electron-builder: "npm:^26.15.3"
     harmonyos-sans: "npm:^1.0.0"
-    lucide-react: "npm:^1.24.0"
+    lucide-react: "npm:^1.39.0"
     monaco-editor: "npm:^0.55.1"
     react: "npm:^19.2.7"
     react-dom: "npm:^19.2.7"
@@ -2150,12 +2150,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lucide-react@npm:^1.24.0":
-  version: 1.25.0
-  resolution: "lucide-react@npm:1.25.0"
+"lucide-react@npm:^1.39.0":
+  version: 1.39.0
+  resolution: "lucide-react@npm:1.39.0"
   peerDependencies:
     react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-  checksum: 10c0/66eb6f82926547ad7086a410c3ce912307e776c75a495c7ae9d68d96ab58abfb61124b6da5c398cdbf820539830ccc8dabfe9960a06b9e0d43670adba822d4b1
+  checksum: 10c0/2e3cb76fd707a96dadeafedc0806816620fa90450c96c9ad8f71e9253d655341a6770f4fe31b0da1e82a5dbdfcb3ac5240eba130c25d04898d8380a9365896a0
   languageName: node
   linkType: hard
 
