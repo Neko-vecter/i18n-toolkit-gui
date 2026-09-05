@@ -1,10 +1,5 @@
 # i18n toolkit GUI
 
-> [!important]
-> This project current in dev. Actions workflows will be introduced once the project reaches a stable state.
->
-> Refer to the [build instructions](#build) below to build from source. 
-
 ## what is this project?
 
 This project is a electron GUI for i18n workflow.
