@@ -1,5 +1,8 @@
 # i18n toolkit GUI
 
+> [!important]
+> Progress on move to new version i18n toolkit
+
 ## what is this project?
 
 This project is a electron GUI for i18n workflow.
